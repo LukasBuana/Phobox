@@ -1,4 +1,5 @@
 com\photobox\PhotoBoothApp.class
 com\photobox\PhotoBoothApp$1.class
 com\photobox\camera\Camera.class
+com\photobox\capture\PhotoCapture.class
 com\photobox\camera\WebcamCamera.class

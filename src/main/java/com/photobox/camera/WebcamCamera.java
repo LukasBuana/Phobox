@@ -36,7 +36,7 @@ public class WebcamCamera implements Camera {
 
         // Resolusi awal untuk prototype
         webcam.setViewSize(
-                new Dimension(1920, 1080)
+                new Dimension(1280, 720)
         );
 
         webcam.open();
