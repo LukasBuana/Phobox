@@ -2,7 +2,8 @@
 
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+         xsi:schemaLocation="
+         http://maven.apache.org/POM/4.0.0
          https://maven.apache.org/xsd/maven-4.0.0.xsd">
 
     <modelVersion>4.0.0</modelVersion>
@@ -14,14 +15,15 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>21</maven.compiler.release>
-
         <javafx.version>21.0.6</javafx.version>
-        <opencv.version>4.10.0-0</opencv.version>
     </properties>
 
     <dependencies>
 
-        <!-- JavaFX -->
+        <!-- ==================== -->
+        <!-- JavaFX                -->
+        <!-- ==================== -->
+
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-controls</artifactId>
@@ -34,11 +36,38 @@
             <version>${javafx.version}</version>
         </dependency>
 
-        <!-- OpenCV -->
         <dependency>
-            <groupId>org.openpnp</groupId>
-            <artifactId>opencv</artifactId>
-            <version>${opencv.version}</version>
+    <groupId>org.openjfx</groupId>
+    <artifactId>javafx-controls</artifactId>
+    <version>${javafx.version}</version>
+</dependency>
+
+<dependency>
+    <groupId>org.openjfx</groupId>
+    <artifactId>javafx-fxml</artifactId>
+    <version>${javafx.version}</version>
+</dependency>
+
+<dependency>
+    <groupId>org.openjfx</groupId>
+    <artifactId>javafx-swing</artifactId>
+    <version>${javafx.version}</version>
+</dependency>
+
+        <!-- ==================== -->
+        <!-- Webcam                -->
+        <!-- ==================== -->
+
+        <dependency>
+            <groupId>com.github.sarxos</groupId>
+            <artifactId>webcam-capture</artifactId>
+            <version>0.3.12</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.github.eduramiba</groupId>
+            <artifactId>webcam-capture-driver-native</artifactId>
+            <version>1.3.1</version>
         </dependency>
 
     </dependencies>
@@ -46,11 +75,12 @@
     <build>
         <plugins>
 
-            <!-- Java compiler -->
+            <!-- Java Compiler -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.13.0</version>
+
                 <configuration>
                     <release>21</release>
                 </configuration>
@@ -63,10 +93,9 @@
                 <version>0.0.8</version>
 
                 <configuration>
-                    <mainClass>
-                        com.photobox.PhotoBoothApp
-                    </mainClass>
+                    <mainClass>com.photobox.PhotoBoothApp</mainClass>
                 </configuration>
+
             </plugin>
 
         </plugins>
