@@ -12,52 +12,71 @@ import java.util.List;
 
 public class TemplateRepository {
 
-    /**
-     * Mengambil semua template yang aktif.
-     */
     public List<Template> findAllActive() {
+        return findByTypeActive(null);
+    }
 
-        String sql = """
-                SELECT
-                    id,
-                    name,
-                    description,
-                    background_path,
-                    canvas_width,
-                    canvas_height,
-                    photo_count,
-                    is_active
-                FROM templates
-                WHERE is_active = 1
-                ORDER BY id
-                """;
+    /**
+     * Mengambil semua template aktif berdasarkan tipe layout (misal: "2x2", "3x3").
+     * Jika tipe bernilai null atau kosong, maka mengembalikan seluruh template aktif.
+     */
+    public List<Template> findByTypeActive(String type) {
+        String sql;
+        boolean filterByType = (type != null && !type.trim().isEmpty());
+
+        if (filterByType) {
+            sql = """
+                    SELECT
+                        id,
+                        name,
+                        type,
+                        description,
+                        background_path,
+                        canvas_width,
+                        canvas_height,
+                        photo_count,
+                        is_active
+                    FROM templates
+                    WHERE is_active = 1 AND type = ?
+                    ORDER BY id
+                    """;
+        } else {
+            sql = """
+                    SELECT
+                        id,
+                        name,
+                        type,
+                        description,
+                        background_path,
+                        canvas_width,
+                        canvas_height,
+                        photo_count,
+                        is_active
+                    FROM templates
+                    WHERE is_active = 1
+                    ORDER BY id
+                    """;
+        }
 
         List<Template> templates = new ArrayList<>();
 
-        try (Connection connection =
-                     Database.getConnection();
+        try (Connection connection = Database.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
 
-             PreparedStatement statement =
-                     connection.prepareStatement(sql);
+            if (filterByType) {
+                statement.setString(1, type);
+            }
 
-             ResultSet resultSet =
-                     statement.executeQuery()) {
-
-            while (resultSet.next()) {
-
-                Template template =
-                        mapTemplate(
-                                connection,
-                                resultSet
-                        );
-
-                templates.add(template);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    Template template = mapTemplate(connection, resultSet);
+                    templates.add(template);
+                }
             }
 
             return templates;
 
         } catch (SQLException e) {
-
             throw new RuntimeException(
                     "Gagal mengambil template aktif.",
                     e
@@ -65,15 +84,12 @@ public class TemplateRepository {
         }
     }
 
-    /**
-     * Mengambil satu template berdasarkan ID.
-     */
     public Template findById(int templateId) {
-
         String sql = """
                 SELECT
                     id,
                     name,
+                    type,
                     description,
                     background_path,
                     canvas_width,
@@ -114,11 +130,9 @@ public class TemplateRepository {
         }
     }
 
-    /**
-     * Membuat template baru.
-     */
     public int create(
             String name,
+            String type,
             String description,
             String backgroundPath,
             int canvasWidth,
@@ -130,6 +144,7 @@ public class TemplateRepository {
         String sql = """
                 INSERT INTO templates (
                     name,
+                    type,
                     description,
                     background_path,
                     canvas_width,
@@ -139,7 +154,7 @@ public class TemplateRepository {
                     created_at,
                     updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
                 """;
 
         try (Connection connection =
@@ -155,13 +170,14 @@ public class TemplateRepository {
                     LocalDateTime.now().toString();
 
             statement.setString(1, name);
-            statement.setString(2, description);
-            statement.setString(3, backgroundPath);
-            statement.setInt(4, canvasWidth);
-            statement.setInt(5, canvasHeight);
-            statement.setInt(6, photoCount);
-            statement.setString(7, now);
+            statement.setString(2, type);
+            statement.setString(3, description);
+            statement.setString(4, backgroundPath);
+            statement.setInt(5, canvasWidth);
+            statement.setInt(6, canvasHeight);
+            statement.setInt(7, photoCount);
             statement.setString(8, now);
+            statement.setString(9, now);
 
             statement.executeUpdate();
 
@@ -196,9 +212,6 @@ public class TemplateRepository {
         }
     }
 
-    /**
-     * Menyimpan slot-slot template.
-     */
     private void saveSlots(
             Connection connection,
             int templateId,
@@ -223,40 +236,13 @@ public class TemplateRepository {
 
             for (TemplateSlot slot : slots) {
 
-                statement.setInt(
-                        1,
-                        templateId
-                );
-
-                statement.setInt(
-                        2,
-                        slot.getSlotIndex()
-                );
-
-                statement.setInt(
-                        3,
-                        slot.getX()
-                );
-
-                statement.setInt(
-                        4,
-                        slot.getY()
-                );
-
-                statement.setInt(
-                        5,
-                        slot.getWidth()
-                );
-
-                statement.setInt(
-                        6,
-                        slot.getHeight()
-                );
-
-                statement.setDouble(
-                        7,
-                        slot.getRotation()
-                );
+                statement.setInt(1, templateId);
+                statement.setInt(2, slot.getSlotIndex());
+                statement.setInt(3, slot.getX());
+                statement.setInt(4, slot.getY());
+                statement.setInt(5, slot.getWidth());
+                statement.setInt(6, slot.getHeight());
+                statement.setDouble(7, slot.getRotation());
 
                 statement.addBatch();
             }
@@ -265,10 +251,6 @@ public class TemplateRepository {
         }
     }
 
-    /**
-     * Mengambil slot-slot dari database
-     * kemudian membentuk object Template.
-     */
     private Template mapTemplate(
             Connection connection,
             ResultSet resultSet
@@ -296,9 +278,6 @@ public class TemplateRepository {
         );
     }
 
-    /**
-     * Mengambil semua slot dari sebuah template.
-     */
     private List<TemplateSlot> findSlots(
             Connection connection,
             int templateId
@@ -324,10 +303,7 @@ public class TemplateRepository {
         try (PreparedStatement statement =
                      connection.prepareStatement(sql)) {
 
-            statement.setInt(
-                    1,
-                    templateId
-            );
+            statement.setInt(1, templateId);
 
             try (ResultSet resultSet =
                          statement.executeQuery()) {
@@ -353,13 +329,7 @@ public class TemplateRepository {
         return slots;
     }
 
-    /**
-     * Menonaktifkan template.
-     *
-     * Template tidak benar-benar dihapus dari database.
-     */
     public void deactivate(int templateId) {
-
         String sql = """
                 UPDATE templates
                 SET
@@ -387,7 +357,6 @@ public class TemplateRepository {
             statement.executeUpdate();
 
         } catch (SQLException e) {
-
             throw new RuntimeException(
                     "Gagal menonaktifkan template.",
                     e

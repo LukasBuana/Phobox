@@ -6,6 +6,7 @@ import com.photobox.capture.PhotoCapture;
 import com.photobox.session.PhotoSession;
 import com.photobox.template.Template;
 import com.photobox.template.TemplateRepository;
+import com.photobox.template.TemplateSlot;
 import com.photobox.ui.PhotoCaptureView;
 import com.photobox.ui.TemplateSelectionView;
 import com.photobox.ui.TemplateSessionView;
@@ -13,10 +14,17 @@ import com.photobox.template.TemplateRenderer;
 import com.photobox.ui.FinalPhotoView;
 
 import javafx.application.Application;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
 import java.nio.file.Path;
+import java.util.List;
+import java.util.function.Consumer;
 
 public class PhotoBoothApp extends Application {
 
@@ -31,7 +39,6 @@ public class PhotoBoothApp extends Application {
     private PhotoSession photoSession;
 
     private PhotoCaptureView photoCaptureView;
-
     private TemplateRenderer templateRenderer;
 
     @Override
@@ -41,7 +48,8 @@ public class PhotoBoothApp extends Application {
 
         initializeServices();
 
-        showTemplateSelection();
+        // Alur dimulai dengan memilih jenis layout terlebih dahulu
+        showLayoutTypeSelection();
 
         stage.setTitle("PHOTOBOX");
 
@@ -54,27 +62,54 @@ public class PhotoBoothApp extends Application {
     private void initializeServices() {
 
         camera = new WebcamCamera();
-
         camera.start();
 
         photoCapture = new PhotoCapture(camera);
-
         templateRepository = new TemplateRepository();
-
         templateRenderer = new TemplateRenderer();
     }
 
     // ==========================================================
-    // TEMPLATE SELECTION
+    // TAHAP 1: PILIH JENIS LAYOUT (2x2, 3x3, dll)
     // ==========================================================
-
-    private void showTemplateSelection() {
-
+    private void showLayoutTypeSelection() {
         disposeCurrentCaptureView();
 
+        VBox layoutRoot = new VBox(25);
+        layoutRoot.setAlignment(Pos.CENTER);
+        layoutRoot.setStyle("-fx-background-color: #111111; -fx-padding: 40;");
+
+        Label title = new Label("PILIH JENIS LAYOUT");
+        title.setStyle("-fx-font-size: 36px; -fx-font-weight: bold; -fx-text-fill: white;");
+
+        Button btn2x2 = new Button("LAYOUT 2x2 (4 Foto)");
+        btn2x2.setPrefWidth(300);
+        btn2x2.setStyle("-fx-font-size: 18px; -fx-padding: 15;");
+        btn2x2.setOnAction(e -> showTemplateSelection("2x2"));
+
+        Button btn3x3 = new Button("LAYOUT 3x3 (9 Foto)");
+        btn3x3.setPrefWidth(300);
+        btn3x3.setStyle("-fx-font-size: 18px; -fx-padding: 15;");
+        btn3x3.setOnAction(e -> showTemplateSelection("3x3"));
+
+        layoutRoot.getChildren().addAll(title, btn2x2, btn3x3);
+
+        showView(layoutRoot);
+    }
+
+    // ==========================================================
+    // TAHAP 2: PILIH TEMPLATE BERDASARKAN TIPE
+    // ==========================================================
+    private void showTemplateSelection(String layoutType) {
+        disposeCurrentCaptureView();
+
+        List<Template> templates = templateRepository.findByTypeActive(layoutType);
+
         TemplateSelectionView view = new TemplateSelectionView(
-                templateRepository,
-                this::startTemplateSession);
+                templates,
+                this::startTemplateSession,
+                this::showLayoutTypeSelection // Tombol kembali untuk ganti jenis layout
+        );
 
         showView(view);
     }
@@ -82,10 +117,7 @@ public class PhotoBoothApp extends Application {
     // ==========================================================
     // TEMPLATE SESSION
     // ==========================================================
-
-    private void startTemplateSession(
-            Template template) {
-
+    private void startTemplateSession(Template template) {
         selectedTemplate = template;
 
         photoSession = new PhotoSession(
@@ -117,16 +149,17 @@ public class PhotoBoothApp extends Application {
     // ==========================================================
     // PHOTO CAPTURE
     // ==========================================================
-
-    private void startPhotoCapture(
-            int slotIndex) {
+    private void startPhotoCapture(int slotIndex) {
 
         disposeCurrentCaptureView();
+
+        TemplateSlot targetSlot =
+                selectedTemplate.getSlots().get(slotIndex);
 
         photoCaptureView = new PhotoCaptureView(
                 camera,
                 photoCapture,
-                slotIndex,
+                targetSlot,
 
                 // USE PHOTO
                 photoPath -> photoAccepted(
@@ -153,7 +186,6 @@ public class PhotoBoothApp extends Application {
     // ==========================================================
     // FINISH SESSION
     // ==========================================================
-
     private void finishSession() {
 
         try {
@@ -162,61 +194,46 @@ public class PhotoBoothApp extends Application {
                     selectedTemplate,
                     photoSession);
 
-            System.out.println(
-                    "================================");
-
-            System.out.println(
-                    "SESSION FINISHED");
-
-            System.out.println(
-                    "Final photo:");
-
-            System.out.println(
-                    finalPhoto.toAbsolutePath());
-
-            System.out.println(
-                    "================================");
+            System.out.println("================================");
+            System.out.println("SESSION FINISHED");
+            System.out.println("Final photo: " + finalPhoto.toAbsolutePath());
+            System.out.println("================================");
 
             showFinalPhoto(finalPhoto);
 
         } catch (Exception e) {
-
-            System.err.println(
-                    "Gagal membuat final photo:");
-
+            System.err.println("Gagal membuat final photo:");
             e.printStackTrace();
         }
     }
 
-    private void showFinalPhoto(
-            Path finalPhoto) {
+    private void showFinalPhoto(Path finalPhoto) {
 
         FinalPhotoView view = new FinalPhotoView(
-
                 finalPhoto,
 
                 // RETAKE
-                this::showTemplateSession,
+                this::showTemplateSelectionForCurrentType,
 
                 // PRINT
                 () -> {
-
-                    System.out.println(
-                            "PRINT belum diimplementasikan.");
-
-                    System.out.println(
-                            "File:");
-
-                    System.out.println(
-                            finalPhoto.toAbsolutePath());
+                    System.out.println("PRINT belum diimplementasikan.");
+                    System.out.println("File: " + finalPhoto.toAbsolutePath());
                 });
 
         showView(view);
     }
 
     // ==========================================================
-    // NAVIGATION
+    // NAVIGATION HELPERS
     // ==========================================================
+    private void showTemplateSelectionForCurrentType() {
+        if (selectedTemplate != null) {
+            showTemplateSelection(selectedTemplate.getName()); // atau ambil type dari selectedTemplate
+        } else {
+            showLayoutTypeSelection();
+        }
+    }
 
     private void backToTemplateSelection() {
 
@@ -226,59 +243,37 @@ public class PhotoBoothApp extends Application {
 
         selectedTemplate = null;
 
-        showTemplateSelection();
+        showLayoutTypeSelection();
     }
 
-    private void showView(
-            javafx.scene.Parent view) {
-
+    private void showView(javafx.scene.Parent view) {
         Scene scene = stage.getScene();
 
         if (scene == null) {
-
-            scene = new Scene(
-                    view);
-
+            scene = new Scene(view);
             stage.setScene(scene);
-
         } else {
-
             scene.setRoot(view);
         }
     }
 
-    // ==========================================================
-    // CAMERA / VIEW CLEANUP
-    // ==========================================================
-
     private void disposeCurrentCaptureView() {
-
         if (photoCaptureView != null) {
-
             photoCaptureView.dispose();
-
             photoCaptureView = null;
         }
     }
 
     @Override
     public void stop() {
-
         disposeCurrentCaptureView();
 
-        if (camera != null &&
-                camera.isRunning()) {
-
+        if (camera != null && camera.isRunning()) {
             camera.stop();
         }
     }
 
-    // ==========================================================
-    // MAIN
-    // ==========================================================
-
     public static void main(String[] args) {
-
         launch(args);
     }
 }

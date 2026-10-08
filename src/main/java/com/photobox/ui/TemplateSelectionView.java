@@ -1,7 +1,7 @@
 package com.photobox.ui;
 
 import com.photobox.template.Template;
-import com.photobox.template.TemplateRepository;
+import com.photobox.template.TemplateSlot;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -10,6 +10,8 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
+import javafx.scene.layout.Pane;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 
 import java.io.File;
@@ -18,15 +20,18 @@ import java.util.function.Consumer;
 
 public class TemplateSelectionView extends BorderPane {
 
-    private final TemplateRepository templateRepository;
+    private final List<Template> templates;
     private final Consumer<Template> onTemplateSelected;
+    private final Runnable onBack;
 
     public TemplateSelectionView(
-            TemplateRepository templateRepository,
-            Consumer<Template> onTemplateSelected
+            List<Template> templates,
+            Consumer<Template> onTemplateSelected,
+            Runnable onBack
     ) {
-        this.templateRepository = templateRepository;
+        this.templates = templates;
         this.onTemplateSelected = onTemplateSelected;
+        this.onBack = onBack;
 
         createView();
     }
@@ -35,19 +40,30 @@ public class TemplateSelectionView extends BorderPane {
 
         setPadding(new Insets(30));
 
-        Label title = new Label("Pilih Template");
+        // ==================================================
+        // HEADER / TITLE & BACK BUTTON
+        // ==================================================
+        BorderPane header = new BorderPane();
+        
+        Button backButton = new Button("KEMBALI");
+        backButton.setStyle("-fx-font-size: 14px; -fx-padding: 8 15;");
+        backButton.setOnAction(event -> onBack.run());
+
+        Label title = new Label("Pilih Template Background");
         title.setStyle(
                 "-fx-font-size: 28px;" +
                 "-fx-font-weight: bold;"
         );
 
-        BorderPane.setAlignment(
-                title,
-                Pos.CENTER
-        );
+        header.setLeft(backButton);
+        header.setCenter(title);
+        BorderPane.setAlignment(title, Pos.CENTER);
 
-        setTop(title);
+        setTop(header);
 
+        // ==================================================
+        // TEMPLATE CONTAINER
+        // ==================================================
         FlowPane templateContainer =
                 new FlowPane();
 
@@ -61,14 +77,11 @@ public class TemplateSelectionView extends BorderPane {
                 Pos.TOP_CENTER
         );
 
-        List<Template> templates =
-                templateRepository.findAllActive();
-
         if (templates.isEmpty()) {
 
             Label emptyLabel =
                     new Label(
-                            "Belum ada template tersedia."
+                            "Belum ada template tersedia untuk layout ini."
                     );
 
             emptyLabel.setStyle(
@@ -105,7 +118,7 @@ public class TemplateSelectionView extends BorderPane {
         card.setPadding(new Insets(15));
 
         card.setPrefWidth(220);
-        card.setPrefHeight(320);
+        card.setPrefHeight(340);
 
         card.setStyle(
                 "-fx-background-color: white;" +
@@ -115,26 +128,16 @@ public class TemplateSelectionView extends BorderPane {
                 "-fx-cursor: hand;"
         );
 
-        ImageView preview =
+        Pane previewPane =
                 createPreview(template);
 
         Label name =
                 new Label(template.getName());
 
         name.setStyle(
-                "-fx-font-size: 18px;" +
+                "-fx-font-size: 16px;" +
                 "-fx-font-weight: bold;"
         );
-
-        Label description =
-                new Label(
-                        template.getDescription() != null
-                                ? template.getDescription()
-                                : ""
-                );
-
-        description.setWrapText(true);
-        description.setMaxWidth(190);
 
         Label photoCount =
                 new Label(
@@ -143,7 +146,8 @@ public class TemplateSelectionView extends BorderPane {
                 );
 
         photoCount.setStyle(
-                "-fx-text-fill: #666666;"
+                "-fx-text-fill: #666666;" +
+                "-fx-font-size: 12px;"
         );
 
         Button selectButton =
@@ -158,9 +162,8 @@ public class TemplateSelectionView extends BorderPane {
         );
 
         card.getChildren().addAll(
-                preview,
+                previewPane,
                 name,
-                description,
                 photoCount,
                 selectButton
         );
@@ -175,37 +178,66 @@ public class TemplateSelectionView extends BorderPane {
         return card;
     }
 
-    private ImageView createPreview(
-            Template template
-    ) {
+    private Pane createPreview(Template template) {
+        int canvasWidth = template.getCanvasWidth();
+        int canvasHeight = template.getCanvasHeight();
 
-        ImageView imageView =
-                new ImageView();
+        // Ukuran mini preview pada kartu
+        double previewWidth = 180;
+        double previewHeight = 210;
 
-        imageView.setFitWidth(180);
-        imageView.setFitHeight(210);
+        double scale = Math.min(
+                previewWidth / canvasWidth,
+                previewHeight / canvasHeight
+        );
 
-        imageView.setPreserveRatio(true);
+        double displayWidth = canvasWidth * scale;
+        double displayHeight = canvasHeight * scale;
 
-        String backgroundPath =
-                template.getBackgroundPath();
+        Pane pane = new Pane();
+        pane.setPrefSize(displayWidth, displayHeight);
+        pane.setMaxSize(displayWidth, displayHeight);
+        pane.setStyle("-fx-background-color: #f0f0f0; -fx-border-color: #cccccc;");
 
-        if (backgroundPath != null) {
-
-            File file =
-                    new File(backgroundPath);
-
-            if (file.exists()) {
-
-                Image image =
-                        new Image(
-                                file.toURI().toString()
-                        );
-
-                imageView.setImage(image);
+        // 1. Muat Background jika ada
+        String backgroundPath = template.getBackgroundPath();
+        if (backgroundPath != null && !backgroundPath.trim().isEmpty()) {
+            try {
+                File file = new File(backgroundPath);
+                if (file.exists()) {
+                    Image image = new Image(file.toURI().toString());
+                    ImageView imageView = new ImageView(image);
+                    imageView.setFitWidth(displayWidth);
+                    imageView.setFitHeight(displayHeight);
+                    imageView.setPreserveRatio(false);
+                    pane.getChildren().add(imageView);
+                }
+            } catch (Exception e) {
+                // Abaikan jika background gagal dimuat
             }
         }
 
-        return imageView;
+        // 2. Render Kotak Slot Mini secara Proporsional
+        for (TemplateSlot slot : template.getSlots()) {
+            double x = slot.getX() * scale;
+            double y = slot.getY() * scale;
+            double w = slot.getWidth() * scale;
+            double h = slot.getHeight() * scale;
+
+            Pane slotBox = new Pane();
+            slotBox.setLayoutX(x);
+            slotBox.setLayoutY(y);
+            slotBox.setPrefSize(w, h);
+            slotBox.setStyle(
+                    "-fx-background-color: rgba(255, 255, 255, 0.7);" +
+                    "-fx-border-color: #666666;" +
+                    "-fx-border-width: 1;" +
+                    "-fx-border-style: dashed;"
+            );
+
+            pane.getChildren().add(slotBox);
+        }
+
+        return pane;
     }
 }

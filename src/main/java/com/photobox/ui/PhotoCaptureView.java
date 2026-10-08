@@ -2,12 +2,14 @@ package com.photobox.ui;
 
 import com.photobox.camera.Camera;
 import com.photobox.capture.PhotoCapture;
+import com.photobox.template.TemplateSlot;
 
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.geometry.Rectangle2D; // <-- Menggunakan Viewport untuk live crop
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.image.Image;
@@ -31,7 +33,7 @@ public class PhotoCaptureView extends BorderPane {
     private final Camera camera;
     private final PhotoCapture photoCapture;
 
-    private final int slotIndex;
+    private final TemplateSlot targetSlot;
 
     private final Consumer<Path> onPhotoAccepted;
     private final Runnable onBack;
@@ -39,51 +41,35 @@ public class PhotoCaptureView extends BorderPane {
     private final ImageView cameraView;
     private final Label countdownLabel;
 
+    // Untuk memastikan viewport hanya dihitung satu kali
+    private boolean viewportInitialized = false;
+
     private Timeline countdownTimeline;
-
     private Path lastPhotoPath;
-
     private int countdown;
 
-    /*
-     * TRUE ketika sedang menampilkan hasil foto.
-     *
-     * Ketika TRUE, thread kamera tidak boleh
-     * mengganti ImageView dengan live camera preview.
-     */
     private volatile boolean showingPhotoResult = false;
-
-    /*
-     * Menandakan apakah proses countdown sedang berjalan.
-     */
     private boolean countdownRunning = false;
 
     public PhotoCaptureView(
             Camera camera,
             PhotoCapture photoCapture,
-            int slotIndex,
+            TemplateSlot targetSlot,
             Consumer<Path> onPhotoAccepted,
             Runnable onBack
     ) {
 
         this.camera = camera;
         this.photoCapture = photoCapture;
+        this.targetSlot = targetSlot;
 
-        this.slotIndex = slotIndex;
-
-        this.onPhotoAccepted =
-                onPhotoAccepted;
-
+        this.onPhotoAccepted = onPhotoAccepted;
         this.onBack = onBack;
 
-        cameraView =
-                new ImageView();
-
-        countdownLabel =
-                new Label();
+        cameraView = new ImageView();
+        countdownLabel = new Label();
 
         createView();
-
         startCameraPreview();
     }
 
@@ -96,7 +82,7 @@ public class PhotoCaptureView extends BorderPane {
         Label title =
                 new Label(
                         "Take Photo "
-                                + (slotIndex + 1)
+                                + (targetSlot.getSlotIndex() + 1)
                 );
 
         title.setStyle(
@@ -111,27 +97,27 @@ public class PhotoCaptureView extends BorderPane {
 
         setTop(title);
 
+        // ==================================================
+        // UKURAN MAKSIMAL KAMERA DI LAYAR
+        // ==================================================
         cameraView.setFitWidth(900);
         cameraView.setFitHeight(600);
-
         cameraView.setPreserveRatio(true);
+        cameraView.setSmooth(true);
 
         StackPane previewContainer =
                 new StackPane();
 
-        previewContainer
-                .getChildren()
-                .add(cameraView);
-
         countdownLabel.setStyle(
                 "-fx-font-size: 100px;" +
                 "-fx-font-weight: bold;" +
-                "-fx-text-fill: white;"
+                "-fx-text-fill: white;" +
+                "-fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.8), 10, 0, 0, 0);"
         );
 
         previewContainer
                 .getChildren()
-                .add(countdownLabel);
+                .addAll(cameraView, countdownLabel);
 
         StackPane.setAlignment(
                 countdownLabel,
@@ -145,6 +131,40 @@ public class PhotoCaptureView extends BorderPane {
         );
     }
 
+    // ==================================================
+    // LIVE CROP (VIEWPORT)
+    // ==================================================
+    // ==================================================
+    // LIVE CROP (VIEWPORT)
+    // ==================================================
+    private void updateViewport(double camWidth, double camHeight) {
+
+        // PERBAIKAN: Gunakan (double) agar tidak menjadi 0 (Integer Division)
+        double slotRatio = (double) targetSlot.getWidth() / (double) targetSlot.getHeight();
+        double camRatio = camWidth / camHeight;
+
+        double cropWidth, cropHeight, xOffset, yOffset;
+
+        if (camRatio > slotRatio) {
+            // Kamera lebih lebar dari template -> Potong Kiri & Kanan
+            cropHeight = camHeight;
+            cropWidth = camHeight * slotRatio;
+            xOffset = (camWidth - cropWidth) / 2;
+            yOffset = 0;
+        } else {
+            // Kamera lebih tinggi dari template -> Potong Atas & Bawah
+            cropWidth = camWidth;
+            cropHeight = camWidth / slotRatio;
+            xOffset = 0;
+            yOffset = (camHeight - cropHeight) / 2;
+        }
+
+        // Terapkan batas crop secara langsung ke kamera
+        cameraView.setViewport(
+                new Rectangle2D(xOffset, yOffset, cropWidth, cropHeight)
+        );
+    }
+
     private HBox createControls() {
 
         Button backButton =
@@ -152,9 +172,7 @@ public class PhotoCaptureView extends BorderPane {
 
         backButton.setOnAction(
                 event -> {
-
                     stopCountdown();
-
                     onBack.run();
                 }
         );
@@ -164,7 +182,6 @@ public class PhotoCaptureView extends BorderPane {
 
         takeButton.setOnAction(
                 event -> {
-
                     if (!countdownRunning) {
                         startCountdown();
                     }
@@ -197,19 +214,10 @@ public class PhotoCaptureView extends BorderPane {
                     while (!Thread.currentThread()
                             .isInterrupted()) {
 
-                        /*
-                         * Jangan membaca/update preview
-                         * jika camera sudah tidak aktif.
-                         */
                         if (!camera.isRunning()) {
                             break;
                         }
 
-                        /*
-                         * Jika sedang menampilkan hasil foto,
-                         * jangan timpa ImageView dengan
-                         * frame kamera.
-                         */
                         if (!showingPhotoResult) {
 
                             BufferedImage frame =
@@ -240,38 +248,29 @@ public class PhotoCaptureView extends BorderPane {
 
                                     Platform.runLater(() -> {
 
-                                        /*
-                                         * Cek lagi karena bisa saja
-                                         * status berubah ketika
-                                         * update sedang menunggu
-                                         * JavaFX Application Thread.
-                                         */
                                         if (!showingPhotoResult) {
 
-                                            cameraView
-                                                    .setImage(image);
+                                            cameraView.setImage(image);
+
+                                            // Inisiasi Viewport (Crop) di frame pertama
+                                            if (!viewportInitialized && image.getWidth() > 0) {
+                                                updateViewport(image.getWidth(), image.getHeight());
+                                                viewportInitialized = true;
+                                            }
                                         }
 
                                     });
 
                                 } catch (IOException e) {
-
                                     e.printStackTrace();
                                 }
                             }
                         }
 
                         try {
-
                             Thread.sleep(33);
-
-                        } catch (
-                                InterruptedException e
-                        ) {
-
-                            Thread.currentThread()
-                                    .interrupt();
-
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
                             break;
                         }
                     }
@@ -279,21 +278,14 @@ public class PhotoCaptureView extends BorderPane {
                 });
 
         previewThread.setDaemon(true);
-
         previewThread.start();
     }
 
     private void startCountdown() {
 
         stopCountdown();
-
-        /*
-         * Pastikan kita kembali ke live camera.
-         */
         showingPhotoResult = false;
-
         countdownRunning = true;
-
         countdown = 3;
 
         countdownLabel.setText(
@@ -309,76 +301,48 @@ public class PhotoCaptureView extends BorderPane {
                                     countdown--;
 
                                     if (countdown <= 0) {
-
-                                        countdownLabel
-                                                .setText("");
-
+                                        countdownLabel.setText("");
                                         countdownRunning = false;
 
                                         if (countdownTimeline != null) {
-
-                                            countdownTimeline
-                                                    .stop();
+                                            countdownTimeline.stop();
                                         }
-
                                         countdownTimeline = null;
-
                                         takePhoto();
 
                                     } else {
-
-                                        countdownLabel
-                                                .setText(
-                                                        String.valueOf(
-                                                                countdown
-                                                        )
-                                                );
+                                        countdownLabel.setText(
+                                                String.valueOf(countdown)
+                                        );
                                     }
                                 }
                         )
                 );
 
         countdownTimeline.setCycleCount(3);
-
         countdownTimeline.play();
     }
 
     private void stopCountdown() {
 
         if (countdownTimeline != null) {
-
             countdownTimeline.stop();
-
             countdownTimeline = null;
         }
 
         countdownRunning = false;
-
         countdownLabel.setText("");
     }
 
     private void takePhoto() {
 
         try {
-
-            /*
-             * Tandai bahwa kita akan masuk ke
-             * mode hasil foto.
-             *
-             * Ini dilakukan sebelum capture supaya
-             * live preview tidak menimpa hasil capture.
-             */
             showingPhotoResult = true;
-
-            lastPhotoPath =
-                    photoCapture.capture();
-
+            lastPhotoPath = photoCapture.capture();
             showPhotoPreview();
 
         } catch (Exception e) {
-
             showingPhotoResult = false;
-
             e.printStackTrace();
         }
     }
@@ -388,14 +352,11 @@ public class PhotoCaptureView extends BorderPane {
         stopCountdown();
 
         if (lastPhotoPath == null) {
-
             showingPhotoResult = false;
-
             return;
         }
 
         try {
-
             Image image =
                     new Image(
                             Files.newInputStream(
@@ -403,29 +364,16 @@ public class PhotoCaptureView extends BorderPane {
                             )
                     );
 
-            /*
-             * Tampilkan hasil foto yang baru saja
-             * diambil.
-             */
+            // Karena setViewport masih aktif, foto statis ini
+            // juga akan terlihat tercrop dengan sempurna seperti live preview
             cameraView.setImage(image);
 
-            /*
-             * Ganti tombol:
-             *
-             * BACK + TAKE PHOTO
-             *
-             * menjadi:
-             *
-             * RETAKE + USE PHOTO
-             */
             setBottom(
                     createPhotoPreviewControls()
             );
 
         } catch (IOException e) {
-
             showingPhotoResult = false;
-
             e.printStackTrace();
         }
     }
@@ -466,26 +414,10 @@ public class PhotoCaptureView extends BorderPane {
 
     private void retakePhoto() {
 
-        /*
-         * Buang hasil foto sebelumnya dari state.
-         *
-         * File fisiknya tidak perlu langsung dihapus.
-         * Untuk tahap prototype ini lebih aman dibiarkan.
-         */
         lastPhotoPath = null;
-
-        /*
-         * Kembali ke live camera.
-         */
         showingPhotoResult = false;
-
         cameraView.setImage(null);
 
-        /*
-         * Kembalikan tombol:
-         *
-         * BACK + TAKE PHOTO
-         */
         setBottom(
                 createControls()
         );
@@ -497,29 +429,15 @@ public class PhotoCaptureView extends BorderPane {
             return;
         }
 
-        Path acceptedPhoto =
-                lastPhotoPath;
-
-        /*
-         * Reset state sebelum berpindah view.
-         */
+        Path acceptedPhoto = lastPhotoPath;
         lastPhotoPath = null;
-
         showingPhotoResult = false;
 
-        /*
-         * Foto baru dianggap diterima
-         * setelah user menekan USE PHOTO.
-         */
-        onPhotoAccepted.accept(
-                acceptedPhoto
-        );
+        onPhotoAccepted.accept(acceptedPhoto);
     }
 
     public void dispose() {
-
         stopCountdown();
-
         showingPhotoResult = true;
     }
 }

@@ -20,9 +20,6 @@ public class Database {
     private static final String DATABASE_URL =
             "jdbc:sqlite:" + DATABASE_FILE;
 
-    /**
-     * Membuka koneksi ke SQLite database.
-     */
     public static Connection getConnection()
             throws SQLException {
 
@@ -40,7 +37,6 @@ public class Database {
         Connection connection =
                 DriverManager.getConnection(DATABASE_URL);
 
-        // Aktifkan foreign key SQLite
         try (Statement statement =
                      connection.createStatement()) {
 
@@ -52,15 +48,14 @@ public class Database {
         return connection;
     }
 
-    /**
-     * Membuat seluruh tabel yang dibutuhkan
-     * oleh aplikasi Photobox.
-     */
     public static void initializeDatabase() {
 
         // ==================================================
-        // TRANSACTIONS
+        // DROP TABEL LAMA (MENGATASI PERUBAHAN SKEMA / KOLOM)
         // ==================================================
+        String dropSlotsTable = "DROP TABLE IF EXISTS template_slots";
+        String dropTemplatesTable = "DROP TABLE IF EXISTS templates";
+        String dropTransactionsTable = "DROP TABLE IF EXISTS transactions";
 
         String createTransactionsTable = """
                 CREATE TABLE IF NOT EXISTS transactions (
@@ -71,15 +66,12 @@ public class Database {
                 )
                 """;
 
-
-        // ==================================================
-        // TEMPLATES
-        // ==================================================
-
+        // Kolom 'type' ditambahkan untuk membedakan jenis layout (misal: "2x2", "3x3", dll)
         String createTemplatesTable = """
                 CREATE TABLE IF NOT EXISTS templates (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL,
+                    type TEXT NOT NULL,
                     description TEXT,
                     background_path TEXT NOT NULL,
                     canvas_width INTEGER NOT NULL,
@@ -90,11 +82,6 @@ public class Database {
                     updated_at TEXT NOT NULL
                 )
                 """;
-
-
-        // ==================================================
-        // TEMPLATE SLOTS
-        // ==================================================
 
         String createTemplateSlotsTable = """
                 CREATE TABLE IF NOT EXISTS template_slots (
@@ -115,17 +102,18 @@ public class Database {
                 )
                 """;
 
-
-        // ==================================================
-        // EXECUTE
-        // ==================================================
-
         try (Connection connection =
                      getConnection();
 
              Statement statement =
                      connection.createStatement()) {
 
+            // Hapus tabel lama terlebih dahulu agar skema ter-update otomatis
+            statement.execute(dropSlotsTable);
+            statement.execute(dropTemplatesTable);
+            statement.execute(dropTransactionsTable);
+
+            // Buat ulang tabel dengan struktur yang baru
             statement.execute(
                     createTransactionsTable
             );
@@ -139,7 +127,7 @@ public class Database {
             );
 
             System.out.println(
-                    "Database initialized successfully."
+                    "Database cleared and initialized successfully with new schema."
             );
 
         } catch (SQLException e) {

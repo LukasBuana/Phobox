@@ -6,6 +6,7 @@ import com.photobox.template.TemplateSlot;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.image.Image;
@@ -115,43 +116,50 @@ public class TemplateSessionView extends BorderPane {
                 displayHeight
         );
 
+        // ==================================================
+        // AMANKAN PEMUATAN BACKGROUND DENGAN TRY-CATCH
+        // ==================================================
         String backgroundPath =
                 template.getBackgroundPath();
 
-        if (backgroundPath != null) {
+        if (backgroundPath != null && !backgroundPath.trim().isEmpty()) {
+            try {
+                File backgroundFile = new File(backgroundPath);
 
-            File backgroundFile =
-                    new File(backgroundPath);
+                if (backgroundFile.exists()) {
+                    Image background =
+                            new Image(
+                                    backgroundFile
+                                            .toURI()
+                                            .toString()
+                            );
 
-            if (backgroundFile.exists()) {
+                    ImageView backgroundView =
+                            new ImageView(background);
 
-                Image background =
-                        new Image(
-                                backgroundFile
-                                        .toURI()
-                                        .toString()
-                        );
+                    backgroundView.setFitWidth(
+                            displayWidth
+                    );
 
-                ImageView backgroundView =
-                        new ImageView(background);
+                    backgroundView.setFitHeight(
+                            displayHeight
+                    );
 
-                backgroundView.setFitWidth(
-                        displayWidth
-                );
+                    backgroundView.setPreserveRatio(
+                            false
+                    );
 
-                backgroundView.setFitHeight(
-                        displayHeight
-                );
-
-                backgroundView.setPreserveRatio(
-                        false
-                );
-
-                canvas.getChildren()
-                        .add(backgroundView);
+                    canvas.getChildren()
+                            .add(backgroundView);
+                }
+            } catch (Exception e) {
+                System.err.println("Gagal memuat background, melewati background: " + e.getMessage());
             }
         }
 
+        // ==================================================
+        // SLOT FOTO DIJAMIN SELALU DIGAMBAR KE KANVAS
+        // ==================================================
         for (TemplateSlot slot :
                 template.getSlots()) {
 
@@ -180,10 +188,10 @@ public class TemplateSessionView extends BorderPane {
         double y =
                 slot.getY() * scale;
 
-        double width =
+        double targetWidth =
                 slot.getWidth() * scale;
 
-        double height =
+        double targetHeight =
                 slot.getHeight() * scale;
 
         StackPane slotContainer =
@@ -193,8 +201,8 @@ public class TemplateSessionView extends BorderPane {
         slotContainer.setLayoutY(y);
 
         slotContainer.setPrefSize(
-                width,
-                height
+                targetWidth,
+                targetHeight
         );
 
         Path photoPath =
@@ -213,10 +221,42 @@ public class TemplateSessionView extends BorderPane {
             ImageView imageView =
                     new ImageView(image);
 
-            imageView.setFitWidth(width);
-            imageView.setFitHeight(height);
+            // ==================================================
+            // CENTER CROP LOGIC (Seperti object-fit: cover)
+            // ==================================================
+            double imageWidth = image.getWidth();
+            double imageHeight = image.getHeight();
 
-            imageView.setPreserveRatio(false);
+            double targetRatio = targetWidth / targetHeight;
+            double imageRatio = imageWidth / imageHeight;
+
+            double cropWidth, cropHeight, xOffset, yOffset;
+
+            if (imageRatio > targetRatio) {
+                // Gambar lebih lebar dari rasio slot -> Potong Kiri & Kanan
+                cropHeight = imageHeight;
+                cropWidth = imageHeight * targetRatio;
+                xOffset = (imageWidth - cropWidth) / 2;
+                yOffset = 0;
+            } else {
+                // Gambar lebih tinggi dari rasio slot -> Potong Atas & Bawah
+                cropWidth = imageWidth;
+                cropHeight = imageWidth / targetRatio;
+                xOffset = 0;
+                yOffset = (imageHeight - cropHeight) / 2;
+            }
+
+            // Menerapkan Viewport (Area crop) pada ImageView
+            imageView.setViewport(
+                    new Rectangle2D(xOffset, yOffset, cropWidth, cropHeight)
+            );
+
+            imageView.setFitWidth(targetWidth);
+            imageView.setFitHeight(targetHeight);
+            
+            // Pertahankan rasio (sudah dicrop secara proporsional sebelumnya)
+            imageView.setPreserveRatio(true);
+            imageView.setSmooth(true);
 
             slotContainer
                     .getChildren()
@@ -227,8 +267,8 @@ public class TemplateSessionView extends BorderPane {
             createEmptySlot(
                     slotContainer,
                     slotIndex,
-                    width,
-                    height
+                    targetWidth,
+                    targetHeight
             );
         }
 
