@@ -1,6 +1,14 @@
+com\photobox\template\TemplateSlot.class
+com\photobox\template\Template.class
+com\photobox\database\Database.class
 com\photobox\PhotoBoothApp.class
-com\photobox\PhotoBoothApp$1.class
+com\photobox\template\TemplateRepository.class
+com\photobox\ui\TemplateSelectionView.class
+com\photobox\ui\PhotoCaptureView.class
+com\photobox\ui\TemplateSessionView.class
+com\photobox\template\TemplateSeeder.class
 com\photobox\camera\Camera.class
 com\photobox\session\PhotoSession.class
+com\photobox\template\TemplateRenderer.class
 com\photobox\capture\PhotoCapture.class
 com\photobox\camera\WebcamCamera.class

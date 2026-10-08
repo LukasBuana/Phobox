@@ -1,5 +1,15 @@
 D:\Photobox\photobox\src\main\java\com\photobox\camera\Camera.java
 D:\Photobox\photobox\src\main\java\com\photobox\camera\WebcamCamera.java
 D:\Photobox\photobox\src\main\java\com\photobox\capture\PhotoCapture.java
+D:\Photobox\photobox\src\main\java\com\photobox\database\Database.java
 D:\Photobox\photobox\src\main\java\com\photobox\PhotoBoothApp.java
 D:\Photobox\photobox\src\main\java\com\photobox\session\PhotoSession.java
+D:\Photobox\photobox\src\main\java\com\photobox\template\Template.java
+D:\Photobox\photobox\src\main\java\com\photobox\template\TemplateRenderer.java
+D:\Photobox\photobox\src\main\java\com\photobox\template\TemplateRepository.java
+D:\Photobox\photobox\src\main\java\com\photobox\template\TemplateSeeder.java
+D:\Photobox\photobox\src\main\java\com\photobox\template\TemplateSlot.java
+D:\Photobox\photobox\src\main\java\com\photobox\ui\FinalPhotoView.java
+D:\Photobox\photobox\src\main\java\com\photobox\ui\PhotoCaptureView.java
+D:\Photobox\photobox\src\main\java\com\photobox\ui\TemplateSelectionView.java
+D:\Photobox\photobox\src\main\java\com\photobox\ui\TemplateSessionView.java

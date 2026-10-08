@@ -1,62 +1,103 @@
 package com.photobox.session;
 
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
 public class PhotoSession {
+
     private final int maxPhotos;
-    private final List<Path> photos = new ArrayList<>();
+
+    /*
+     * Menyimpan foto berdasarkan slot template.
+     *
+     * Contoh:
+     * slot 0 -> photo_A.jpg
+     * slot 2 -> photo_B.jpg
+     * slot 3 -> photo_C.jpg
+     *
+     * Jadi user bebas mengambil foto dengan urutan apa pun.
+     */
+    private final Map<Integer, Path> photosBySlot =
+            new HashMap<>();
 
     public PhotoSession(int maxPhotos) {
+
         if (maxPhotos <= 0) {
-            throw new IllegalArgumentException("Jumlah foto harus lebih dari 0.");
+            throw new IllegalArgumentException(
+                    "Jumlah foto harus lebih dari 0."
+            );
         }
+
         this.maxPhotos = maxPhotos;
     }
 
-    /** * Menambahkan foto yang sudah dipilih * oleh user ke dalam session. */
-    public void addPhoto(Path photoPath) {
-        if (isComplete()) {
-            throw new IllegalStateException("Photo session sudah penuh.");
+    /**
+     * Menyimpan foto ke slot tertentu.
+     */
+    public void addPhoto(int slotIndex, Path photoPath) {
+
+        if (slotIndex < 0 || slotIndex >= maxPhotos) {
+            throw new IllegalArgumentException(
+                    "Slot index tidak valid: " + slotIndex
+            );
         }
+
         if (photoPath == null) {
-            throw new IllegalArgumentException("Photo path tidak boleh null.");
+            throw new IllegalArgumentException(
+                    "Photo path tidak boleh null."
+            );
         }
-        photos.add(photoPath);
+
+        photosBySlot.put(slotIndex, photoPath);
     }
 
-    /** * Mengambil jumlah foto yang sudah * diterima user. */
+    /**
+     * Mengecek apakah sebuah slot sudah memiliki foto.
+     */
+    public boolean isSlotFilled(int slotIndex) {
+        return photosBySlot.containsKey(slotIndex);
+    }
+
+    /**
+     * Mengambil foto dari slot tertentu.
+     */
+    public Path getPhoto(int slotIndex) {
+        return photosBySlot.get(slotIndex);
+    }
+
+    /**
+     * Mengembalikan jumlah slot yang sudah terisi.
+     */
     public int getPhotoCount() {
-        return photos.size();
+        return photosBySlot.size();
     }
 
-    /** * Mengambil jumlah maksimum foto. */
     public int getMaxPhotos() {
         return maxPhotos;
     }
 
-    /** * Mengecek apakah session sudah lengkap. */
+    /**
+     * Mengecek apakah seluruh slot sudah terisi.
+     */
     public boolean isComplete() {
-        return photos.size() >= maxPhotos;
-    }
-
-    /** * Mengambil foto berdasarkan index. */
-    public Path getPhoto(int index) {
-        return photos.get(index);
+        return photosBySlot.size() >= maxPhotos;
     }
 
     /**
-     * * Mengambil seluruh foto. * * Collections.unmodifiableList digunakan * agar
-     * list internal tidak dapat diubah * secara langsung dari luar class.
+     * Mengembalikan semua foto berdasarkan slot.
      */
-    public List<Path> getPhotos() {
-        return Collections.unmodifiableList(photos);
+    public Map<Integer, Path> getPhotosBySlot() {
+        return Collections.unmodifiableMap(
+                photosBySlot
+        );
     }
 
-    /** * Menghapus seluruh foto dari session. */
+    /**
+     * Mengosongkan session.
+     */
     public void reset() {
-        photos.clear();
+        photosBySlot.clear();
     }
 }

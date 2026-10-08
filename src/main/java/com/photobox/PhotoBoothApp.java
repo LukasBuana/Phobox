@@ -1,459 +1,281 @@
 package com.photobox;
 
-import java.awt.image.BufferedImage;
-import java.nio.file.Path;
-
+import com.photobox.camera.Camera;
 import com.photobox.camera.WebcamCamera;
 import com.photobox.capture.PhotoCapture;
 import com.photobox.session.PhotoSession;
+import com.photobox.template.Template;
+import com.photobox.template.TemplateRepository;
+import com.photobox.ui.PhotoCaptureView;
+import com.photobox.ui.TemplateSelectionView;
+import com.photobox.ui.TemplateSessionView;
+import com.photobox.template.TemplateRenderer;
+import com.photobox.ui.FinalPhotoView;
 
-import javafx.animation.AnimationTimer;
-import javafx.animation.KeyFrame;
-import javafx.animation.Timeline;
 import javafx.application.Application;
-import javafx.application.Platform;
-import javafx.embed.swing.SwingFXUtils;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.image.ImageView;
-import javafx.scene.image.WritableImage;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.StackPane;
-import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
-import javafx.util.Duration;
+
+import java.nio.file.Path;
 
 public class PhotoBoothApp extends Application {
 
-    private WebcamCamera camera;
+    private Stage stage;
 
-    private ImageView cameraView;
-
-    private AnimationTimer previewTimer;
-
+    private Camera camera;
     private PhotoCapture photoCapture;
 
-    private Label countdownLabel;
+    private TemplateRepository templateRepository;
 
-    private Button takePhotoButton;
-
-    private Path lastPhotoPath;
-
-    private ImageView resultView;
-
-    private Button retakeButton;
-
-    private Button usePhotoButton;
-
+    private Template selectedTemplate;
     private PhotoSession photoSession;
 
-    private Label sessionLabel;
+    private PhotoCaptureView photoCaptureView;
+
+    private TemplateRenderer templateRenderer;
 
     @Override
     public void start(Stage stage) {
 
+        this.stage = stage;
+
+        initializeServices();
+
+        showTemplateSelection();
+
+        stage.setTitle("PHOTOBOX");
+
+        stage.setFullScreen(true);
+        stage.setFullScreenExitHint("");
+
+        stage.show();
+    }
+
+    private void initializeServices() {
+
         camera = new WebcamCamera();
 
-        photoSession = new PhotoSession(4);
+        camera.start();
 
         photoCapture = new PhotoCapture(camera);
 
-        Label title = new Label("PHOTOBOX");
+        templateRepository = new TemplateRepository();
 
-        title.setStyle(
-                "-fx-font-size: 28px; " +
-                        "-fx-font-weight: bold;");
-
-        sessionLabel = new Label("Photo 1 / 4");
-        sessionLabel.setStyle("-fx-font-size: 20px;" + "-fx-font-weight: bold;");
-
-        VBox header = new VBox(5, title, sessionLabel);
-        header.setStyle("-fx-alignment: center;" + "-fx-padding: 15;");
-
-        cameraView = new ImageView();
-
-        cameraView.setFitWidth(800);
-        cameraView.setFitHeight(450);
-
-        cameraView.setPreserveRatio(true);
-
-        resultView = new ImageView();
-
-        resultView.setFitWidth(800);
-        resultView.setFitHeight(500);
-
-        resultView.setPreserveRatio(true);
-
-        resultView.setVisible(false);
-
-        countdownLabel = new Label();
-
-        countdownLabel.setStyle(
-                "-fx-font-size: 100px;" +
-                        "-fx-font-weight: bold;" +
-                        "-fx-text-fill: white;");
-
-        countdownLabel.setVisible(false);
-
-        Button startButton = new Button(
-                "Start Camera");
-
-        Button stopButton = new Button(
-                "Stop Camera");
-
-        startButton.setOnAction(event -> startCamera());
-
-        stopButton.setOnAction(event -> stopCamera());
-
-        takePhotoButton = new Button("Take Photo");
-
-        takePhotoButton.setStyle(
-                "-fx-font-size: 18px;" +
-                        "-fx-padding: 10 25;");
-
-        takePhotoButton.setOnAction(
-                event -> takePhoto());
-
-        retakeButton = new Button("Retake");
-
-        usePhotoButton = new Button("Use Photo");
-
-        retakeButton.setStyle(
-                "-fx-font-size: 18px;" +
-                        "-fx-padding: 10 25;");
-
-        usePhotoButton.setStyle(
-                "-fx-font-size: 18px;" +
-                        "-fx-padding: 10 25;");
-
-        retakeButton.setVisible(false);
-        usePhotoButton.setVisible(false);
-
-        retakeButton.setOnAction(
-                event -> retakePhoto());
-
-        usePhotoButton.setOnAction(
-                event -> usePhoto());
-
-        HBox controls = new HBox(
-                15,
-                startButton,
-                takePhotoButton,
-                retakeButton,
-                usePhotoButton,
-                stopButton);
-
-        controls.setStyle(
-                "-fx-alignment: center;");
-
-        BorderPane root = new BorderPane();
-
-        root.setTop(header);
-
-        BorderPane.setAlignment(
-                title,
-                javafx.geometry.Pos.CENTER);
-
-        StackPane previewContainer = new StackPane(
-                cameraView,
-                resultView,
-                countdownLabel);
-
-        previewContainer.setStyle(
-                "-fx-background-color: black;");
-
-        root.setCenter(previewContainer);
-
-        root.setBottom(controls);
-
-        BorderPane.setAlignment(
-                controls,
-                javafx.geometry.Pos.CENTER);
-
-        Scene scene = new Scene(
-                root,
-                1000,
-                700);
-
-        stage.setTitle(
-                "Photobox Prototype");
-
-        stage.setScene(scene);
-
-        stage.show();
-
-        stage.setOnCloseRequest(event -> {
-            stopCamera();
-            Platform.exit();
-        });
+        templateRenderer = new TemplateRenderer();
     }
 
-    private void usePhoto() {
-        if (lastPhotoPath == null) {
-            return;
-        }
+    // ==========================================================
+    // TEMPLATE SELECTION
+    // ==========================================================
 
-        try {
-            // Masukkan foto ke session
-            photoSession.addPhoto(lastPhotoPath);
+    private void showTemplateSelection() {
 
-            System.out.println("Photo accepted: " + lastPhotoPath.toAbsolutePath());
-            System.out
-                    .println("Session progress: " + photoSession.getPhotoCount() + " / " + photoSession.getMaxPhotos());
+        disposeCurrentCaptureView();
 
-            // Cek apakah session sudah selesai
-            if (photoSession.isComplete()) {
-                finishSession();
-                return;
-            }
+        TemplateSelectionView view = new TemplateSelectionView(
+                templateRepository,
+                this::startTemplateSession);
 
-            // Masih ada foto berikutnya
-            prepareNextPhoto();
-        } catch (Exception e) {
-            System.err.println("Failed to accept photo:");
-            e.printStackTrace();
-        }
+        showView(view);
     }
 
-    private void prepareNextPhoto() {
-        int nextPhotoNumber = photoSession.getPhotoCount() + 1;
+    // ==========================================================
+    // TEMPLATE SESSION
+    // ==========================================================
 
-        sessionLabel.setText("Photo " + nextPhotoNumber + " / " + photoSession.getMaxPhotos());
+    private void startTemplateSession(
+            Template template) {
 
-        // Bersihkan hasil sebelumnya
-        resultView.setImage(null);
-        resultView.setVisible(false);
+        selectedTemplate = template;
 
-        // Tampilkan live camera
-        cameraView.setVisible(true);
+        photoSession = new PhotoSession(
+                template.getPhotoCount());
 
-        // Reset countdown
-        countdownLabel.setText("");
-        countdownLabel.setVisible(false);
-
-        // Reset tombol
-        retakeButton.setVisible(false);
-        usePhotoButton.setVisible(false);
-
-        takePhotoButton.setVisible(true);
-        takePhotoButton.setDisable(false);
-
-        System.out.println("Ready for photo " + nextPhotoNumber + " / " + photoSession.getMaxPhotos());
+        showTemplateSession();
     }
+
+    private void showTemplateSession() {
+
+        disposeCurrentCaptureView();
+
+        TemplateSessionView view = new TemplateSessionView(
+                selectedTemplate,
+                photoSession,
+
+                // BACK
+                this::backToTemplateSelection,
+
+                // SLOT SELECTED
+                this::startPhotoCapture,
+
+                // CONTINUE
+                this::finishSession);
+
+        showView(view);
+    }
+
+    // ==========================================================
+    // PHOTO CAPTURE
+    // ==========================================================
+
+    private void startPhotoCapture(
+            int slotIndex) {
+
+        disposeCurrentCaptureView();
+
+        photoCaptureView = new PhotoCaptureView(
+                camera,
+                photoCapture,
+                slotIndex,
+
+                // USE PHOTO
+                photoPath -> photoAccepted(
+                        slotIndex,
+                        photoPath),
+
+                // BACK
+                this::showTemplateSession);
+
+        showView(photoCaptureView);
+    }
+
+    private void photoAccepted(
+            int slotIndex,
+            Path photoPath) {
+
+        photoSession.addPhoto(
+                slotIndex,
+                photoPath);
+
+        showTemplateSession();
+    }
+
+    // ==========================================================
+    // FINISH SESSION
+    // ==========================================================
 
     private void finishSession() {
-        System.out.println("================================");
-        System.out.println("PHOTO SESSION COMPLETE");
-        System.out.println("================================");
-
-        for (int i = 0; i < photoSession.getPhotoCount(); i++) {
-            System.out.println("Photo " + (i + 1) + ": " + photoSession.getPhoto(i).toAbsolutePath());
-        }
-
-        // Sembunyikan tombol
-        takePhotoButton.setVisible(false);
-        retakeButton.setVisible(false);
-        usePhotoButton.setVisible(false);
-
-        // Tampilkan informasi sementara
-        sessionLabel.setText("Session Complete!");
-        countdownLabel.setVisible(false);
-
-        System.out.println("Ready for template processing.");
-    }
-
-    private void retakePhoto() {
-
-        System.out.println("Retaking photo...");
-
-        // Bersihkan hasil foto sebelumnya
-        resultView.setImage(null);
-        resultView.setVisible(false);
-
-        // Tampilkan kembali live camera
-        cameraView.setVisible(true);
-
-        // Reset countdown
-        countdownLabel.setText("");
-        countdownLabel.setVisible(false);
-
-        // Reset tombol
-        retakeButton.setVisible(false);
-        usePhotoButton.setVisible(false);
-
-        takePhotoButton.setVisible(true);
-        takePhotoButton.setDisable(false);
-
-        retakeButton.setDisable(false);
-        usePhotoButton.setDisable(false);
-
-        System.out.println("Ready to take another photo.");
-    }
-
-    private void capturePhoto() {
 
         try {
 
-            lastPhotoPath = photoCapture.capture();
+            Path finalPhoto = templateRenderer.render(
+                    selectedTemplate,
+                    photoSession);
 
             System.out.println(
-                    "Captured photo: "
-                            + lastPhotoPath.toAbsolutePath());
+                    "================================");
 
-            // Load foto hasil capture
-            javafx.scene.image.Image resultImage = new javafx.scene.image.Image(
-                    lastPhotoPath.toUri().toString());
+            System.out.println(
+                    "SESSION FINISHED");
 
-            resultView.setImage(resultImage);
+            System.out.println(
+                    "Final photo:");
 
-            // Ganti dari live camera
-            // menjadi hasil foto
-            cameraView.setVisible(false);
-            resultView.setVisible(true);
+            System.out.println(
+                    finalPhoto.toAbsolutePath());
 
-            // Tombol
-            takePhotoButton.setVisible(false);
+            System.out.println(
+                    "================================");
 
-            retakeButton.setVisible(true);
-            usePhotoButton.setVisible(true);
+            showFinalPhoto(finalPhoto);
 
         } catch (Exception e) {
 
             System.err.println(
-                    "Failed to capture photo:");
+                    "Gagal membuat final photo:");
 
             e.printStackTrace();
-
-            takePhotoButton.setVisible(true);
-            takePhotoButton.setDisable(false);
-
-        } finally {
-
-            countdownLabel.setVisible(false);
         }
     }
 
-    private void takePhoto() {
+    private void showFinalPhoto(
+            Path finalPhoto) {
 
-        if (!camera.isRunning()) {
-            System.out.println("Camera belum aktif.");
-            return;
-        }
+        FinalPhotoView view = new FinalPhotoView(
 
-        takePhotoButton.setDisable(true);
+                finalPhoto,
 
-        countdownLabel.setVisible(true);
-        countdownLabel.setText("3");
+                // RETAKE
+                this::showTemplateSession,
 
-        Timeline countdown = new Timeline(
-                new KeyFrame(
-                        Duration.ZERO,
-                        event -> countdownLabel.setText("3")),
-                new KeyFrame(
-                        Duration.seconds(1),
-                        event -> countdownLabel.setText("2")),
-                new KeyFrame(
-                        Duration.seconds(2),
-                        event -> countdownLabel.setText("1")),
-                new KeyFrame(
-                        Duration.seconds(3),
-                        event -> capturePhoto()));
+                // PRINT
+                () -> {
 
-        countdown.setCycleCount(1);
-        countdown.play();
+                    System.out.println(
+                            "PRINT belum diimplementasikan.");
+
+                    System.out.println(
+                            "File:");
+
+                    System.out.println(
+                            finalPhoto.toAbsolutePath());
+                });
+
+        showView(view);
     }
 
-    private void startCamera() {
+    // ==========================================================
+    // NAVIGATION
+    // ==========================================================
 
-        if (camera.isRunning()) {
-            return;
+    private void backToTemplateSelection() {
+
+        if (photoSession != null) {
+            photoSession.reset();
         }
 
-        try {
+        selectedTemplate = null;
 
-            camera.start();
+        showTemplateSelection();
+    }
 
-            if (photoSession.isComplete()) {
-                photoSession.reset();
-            }
+    private void showView(
+            javafx.scene.Parent view) {
 
-            sessionLabel.setText(
-                    "Photo 1 / "
-                            + photoSession.getMaxPhotos());
+        Scene scene = stage.getScene();
 
-            cameraView.setVisible(true);
-            resultView.setVisible(false);
+        if (scene == null) {
 
-            takePhotoButton.setVisible(true);
+            scene = new Scene(
+                    view);
 
-            retakeButton.setVisible(false);
-            usePhotoButton.setVisible(false);
+            stage.setScene(scene);
 
-            takePhotoButton.setDisable(false);
-            retakeButton.setDisable(false);
-            usePhotoButton.setDisable(false);
+        } else {
 
-            startPreview();
-
-        } catch (Exception e) {
-
-            e.printStackTrace();
-
+            scene.setRoot(view);
         }
     }
 
-    private void stopCamera() {
+    // ==========================================================
+    // CAMERA / VIEW CLEANUP
+    // ==========================================================
 
-        if (previewTimer != null) {
+    private void disposeCurrentCaptureView() {
 
-            previewTimer.stop();
+        if (photoCaptureView != null) {
 
-            previewTimer = null;
+            photoCaptureView.dispose();
+
+            photoCaptureView = null;
         }
-
-        if (camera != null) {
-
-            camera.stop();
-        }
-
-        cameraView.setImage(null);
-    }
-
-    private void startPreview() {
-
-        previewTimer = new AnimationTimer() {
-
-            @Override
-            public void handle(long now) {
-
-                if (!camera.isRunning()) {
-                    return;
-                }
-
-                BufferedImage frame = camera.getImage();
-
-                if (frame == null) {
-                    return;
-                }
-
-                WritableImage fxImage = SwingFXUtils.toFXImage(
-                        frame,
-                        null);
-
-                cameraView.setImage(fxImage);
-            }
-        };
-
-        previewTimer.start();
     }
 
     @Override
     public void stop() {
 
-        stopCamera();
+        disposeCurrentCaptureView();
+
+        if (camera != null &&
+                camera.isRunning()) {
+
+            camera.stop();
+        }
     }
+
+    // ==========================================================
+    // MAIN
+    // ==========================================================
 
     public static void main(String[] args) {
 
