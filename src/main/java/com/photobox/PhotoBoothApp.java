@@ -44,6 +44,9 @@ public class PhotoBoothApp extends Application {
     private PhotoCaptureView photoCaptureView;
     private TemplateRenderer templateRenderer;
 
+    private TransactionRepository transactionRepository = new TransactionRepository();
+    private String currentTransactionId;
+
     @Override
     public void start(Stage stage) {
 
@@ -104,11 +107,8 @@ public class PhotoBoothApp extends Application {
     }
 
     // ==========================================================
-    // TEMPLATE SESSION
+    // TAHAP 3: MULAI SESI & TRANSAKSI
     // ==========================================================
-    private TransactionRepository transactionRepository = new TransactionRepository();
-    private String currentTransactionId;
-
     private void startTemplateSession(Template template) {
         selectedTemplate = template;
         photoSession = new PhotoSession(template.getPhotoCount());
@@ -116,7 +116,7 @@ public class PhotoBoothApp extends Application {
         // Generate ID Transaksi unik berbasis tanggal/waktu
         currentTransactionId = "#" + LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
         
-        // Simpan transaksi ke database (Contoh: Harga tetap Rp25.000, Pembayaran QRIS)
+        // Simpan transaksi ke database
         transactionRepository.createTransaction(
                 currentTransactionId,
                 template.getName(),
@@ -126,11 +126,72 @@ public class PhotoBoothApp extends Application {
 
         System.out.println("Transaksi Dicatat: " + currentTransactionId + " | Paket: " + template.getName());
 
-        showTemplateSession();
+        // Langsung mulai proses auto-capture dari slot pertama (0)
+        startSequentialCapture(0);
     }
 
-    private void showTemplateSession() {
+    // ==========================================================
+    // TAHAP 4: AUTO-CAPTURE BERURUTAN (SEQUENTIAL)
+    // ==========================================================
+    private void startSequentialCapture(int slotIndex) {
+        // Jika index sudah mencapai total foto yang dibutuhkan, tampilkan layar review
+        if (slotIndex >= selectedTemplate.getPhotoCount()) {
+            showTemplateSession();
+            return;
+        }
 
+        disposeCurrentCaptureView();
+
+        TemplateSlot targetSlot = selectedTemplate.getSlots().get(slotIndex);
+
+        photoCaptureView = new PhotoCaptureView(
+                camera,
+                photoCapture,
+                targetSlot,
+
+                // ON PHOTO ACCEPTED: Simpan foto lalu otomatis jepret slot berikutnya
+                photoPath -> {
+                    photoSession.addPhoto(slotIndex, photoPath);
+                    startSequentialCapture(slotIndex + 1);
+                },
+
+                // ON BACK: Batalkan sesi, kembali ke layar pilih template
+                this::backToTemplateSelection
+        );
+
+        showView(photoCaptureView);
+    }
+
+    // ==========================================================
+    // TAHAP 5: RETAKE DARI LAYAR REVIEW
+    // ==========================================================
+    private void startRetakePhoto(int slotIndex) {
+        disposeCurrentCaptureView();
+
+        TemplateSlot targetSlot = selectedTemplate.getSlots().get(slotIndex);
+
+        photoCaptureView = new PhotoCaptureView(
+                camera,
+                photoCapture,
+                targetSlot,
+
+                // ON PHOTO ACCEPTED: Timpa foto lama, lalu kembali ke layar review
+                photoPath -> {
+                    photoSession.addPhoto(slotIndex, photoPath);
+                    showTemplateSession();
+                },
+
+                // ON BACK: Batal retake, kembali ke layar review
+                this::showTemplateSession
+        );
+
+        showView(photoCaptureView);
+    }
+
+    // ==========================================================
+    // TAHAP 6: LAYAR REVIEW (TEMPLATE SESSION VIEW)
+    // ==========================================================
+    private void showTemplateSession() {
         disposeCurrentCaptureView();
 
         TemplateSessionView view = new TemplateSessionView(
@@ -140,62 +201,25 @@ public class PhotoBoothApp extends Application {
                 // BACK
                 this::backToTemplateSelection,
 
-                // SLOT SELECTED
-                this::startPhotoCapture,
+                // SLOT SELECTED -> Memicu Retake
+                this::startRetakePhoto,
 
-                // CONTINUE
-                this::finishSession);
+                // CONTINUE -> Selesai dan render
+                this::finishSession
+        );
 
         showView(view);
     }
 
     // ==========================================================
-    // PHOTO CAPTURE
-    // ==========================================================
-    private void startPhotoCapture(int slotIndex) {
-
-        disposeCurrentCaptureView();
-
-        TemplateSlot targetSlot =
-                selectedTemplate.getSlots().get(slotIndex);
-
-        photoCaptureView = new PhotoCaptureView(
-                camera,
-                photoCapture,
-                targetSlot,
-
-                // USE PHOTO
-                photoPath -> photoAccepted(
-                        slotIndex,
-                        photoPath),
-
-                // BACK
-                this::showTemplateSession);
-
-        showView(photoCaptureView);
-    }
-
-    private void photoAccepted(
-            int slotIndex,
-            Path photoPath) {
-
-        photoSession.addPhoto(
-                slotIndex,
-                photoPath);
-
-        showTemplateSession();
-    }
-
-    // ==========================================================
-    // FINISH SESSION
+    // TAHAP 7: FINISH SESSION & RENDER
     // ==========================================================
     private void finishSession() {
-
         try {
-
             Path finalPhoto = templateRenderer.render(
                     selectedTemplate,
-                    photoSession);
+                    photoSession
+            );
 
             if (currentTransactionId != null) {
                 transactionRepository.updateResolvedAt(currentTransactionId);
@@ -215,35 +239,34 @@ public class PhotoBoothApp extends Application {
     }
 
     private void showFinalPhoto(Path finalPhoto) {
-
         FinalPhotoView view = new FinalPhotoView(
                 finalPhoto,
 
-                // RETAKE
+                // RETAKE SESI (Mulai ulang template ini)
                 this::showTemplateSelectionForCurrentType,
 
                 // PRINT
                 () -> {
                     System.out.println("PRINT belum diimplementasikan.");
                     System.out.println("File: " + finalPhoto.toAbsolutePath());
-                });
+                }
+        );
 
         showView(view);
     }
 
     // ==========================================================
-    // NAVIGATION HELPERS
+    // NAVIGATION HELPERS & CLEANUP
     // ==========================================================
     private void showTemplateSelectionForCurrentType() {
         if (selectedTemplate != null) {
-            showTemplateSelection(selectedTemplate.getName()); // atau ambil type dari selectedTemplate
+            showTemplateSelection(selectedTemplate.getName());
         } else {
             showLayoutTypeSelection();
         }
     }
 
     private void backToTemplateSelection() {
-
         if (photoSession != null) {
             photoSession.reset();
         }

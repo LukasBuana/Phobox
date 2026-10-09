@@ -12,8 +12,10 @@ import javafx.scene.control.Label;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 
 import java.io.File;
 import java.nio.file.Path;
@@ -29,6 +31,7 @@ public class TemplateSessionView extends BorderPane {
     private final Runnable onContinue;
 
     private Pane templateCanvas;
+    private StackPane centerContainer; // Tambahan: Kontainer untuk menumpuk Pop-up
     private Button continueButton;
 
     public TemplateSessionView(
@@ -73,7 +76,11 @@ public class TemplateSessionView extends BorderPane {
         templateCanvas =
                 createTemplateCanvas();
 
-        setCenter(templateCanvas);
+        // ==================================================
+        // BUNGKUS CANVAS DENGAN STACKPANE AGAR BISA ADA POPUP
+        // ==================================================
+        centerContainer = new StackPane(templateCanvas);
+        setCenter(centerContainer);
 
         setBottom(
                 createBottomBar()
@@ -223,7 +230,7 @@ public class TemplateSessionView extends BorderPane {
                     new ImageView(image);
 
             // ==================================================
-            // CENTER CROP LOGIC (Seperti object-fit: cover)
+            // CENTER CROP LOGIC
             // ==================================================
             double imageWidth = image.getWidth();
             double imageHeight = image.getHeight();
@@ -234,20 +241,17 @@ public class TemplateSessionView extends BorderPane {
             double cropWidth, cropHeight, xOffset, yOffset;
 
             if (imageRatio > targetRatio) {
-                // Gambar lebih lebar dari rasio slot -> Potong Kiri & Kanan
                 cropHeight = imageHeight;
                 cropWidth = imageHeight * targetRatio;
                 xOffset = (imageWidth - cropWidth) / 2;
                 yOffset = 0;
             } else {
-                // Gambar lebih tinggi dari rasio slot -> Potong Atas & Bawah
                 cropWidth = imageWidth;
                 cropHeight = imageWidth / targetRatio;
                 xOffset = 0;
                 yOffset = (imageHeight - cropHeight) / 2;
             }
 
-            // Menerapkan Viewport (Area crop) pada ImageView
             imageView.setViewport(
                     new Rectangle2D(xOffset, yOffset, cropWidth, cropHeight)
             );
@@ -255,13 +259,16 @@ public class TemplateSessionView extends BorderPane {
             imageView.setFitWidth(targetWidth);
             imageView.setFitHeight(targetHeight);
             
-            // Pertahankan rasio (sudah dicrop secara proporsional sebelumnya)
             imageView.setPreserveRatio(true);
             imageView.setSmooth(true);
 
-            slotContainer
-                    .getChildren()
-                    .add(imageView);
+            slotContainer.getChildren().add(imageView);
+
+            // ==================================================
+            // EVENT LISTENER: KLIK FOTO UNTUK MUNCULKAN POPUP
+            // ==================================================
+            slotContainer.setStyle("-fx-cursor: hand;");
+            slotContainer.setOnMouseClicked(event -> showRetakePopup(slotIndex));
 
         } else {
 
@@ -311,6 +318,68 @@ public class TemplateSessionView extends BorderPane {
         );
     }
 
+    // ==================================================
+    // POP-UP KONFIRMASI RETAKE (IN-APP OVERLAY)
+    // ==================================================
+    private void showRetakePopup(int slotIndex) {
+        
+        // 1. Background Overlay (Hitam Semi-Transparan)
+        VBox overlay = new VBox();
+        overlay.setAlignment(Pos.CENTER);
+        overlay.setStyle("-fx-background-color: rgba(0, 0, 0, 0.65);");
+
+        // 2. Dialog Box Putih
+        VBox dialogBox = new VBox(25);
+        dialogBox.setAlignment(Pos.CENTER);
+        dialogBox.setPadding(new Insets(30, 40, 30, 40));
+        dialogBox.setMaxWidth(400);
+        dialogBox.setMaxHeight(200);
+        dialogBox.setStyle(
+                "-fx-background-color: white;" +
+                "-fx-background-radius: 15px;" +
+                "-fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.5), 15, 0, 0, 0);"
+        );
+
+        Label message = new Label("Ingin mengambil ulang (retake) foto ini?");
+        message.setStyle(
+                "-fx-font-size: 18px;" +
+                "-fx-font-weight: bold;" +
+                "-fx-text-fill: #333333;"
+        );
+        message.setWrapText(true);
+
+        // 3. Tombol Aksi
+        Button btnBatal = new Button("Batal");
+        btnBatal.setStyle(
+                "-fx-background-color: #bdc3c7; -fx-text-fill: white; " +
+                "-fx-font-size: 16px; -fx-font-weight: bold; " +
+                "-fx-padding: 10 25; -fx-background-radius: 8; -fx-cursor: hand;"
+        );
+        
+        Button btnRetake = new Button("Retake Foto");
+        btnRetake.setStyle(
+                "-fx-background-color: #e74c3c; -fx-text-fill: white; " +
+                "-fx-font-size: 16px; -fx-font-weight: bold; " +
+                "-fx-padding: 10 25; -fx-background-radius: 8; -fx-cursor: hand;"
+        );
+
+        // Event Tombol
+        btnBatal.setOnAction(e -> centerContainer.getChildren().remove(overlay)); // Tutup pop-up
+        btnRetake.setOnAction(e -> {
+            centerContainer.getChildren().remove(overlay); // Tutup pop-up
+            onSlotSelected.accept(slotIndex); // Buka kamera untuk slot ini
+        });
+
+        HBox buttons = new HBox(15, btnBatal, btnRetake);
+        buttons.setAlignment(Pos.CENTER);
+
+        dialogBox.getChildren().addAll(message, buttons);
+        overlay.getChildren().add(dialogBox);
+
+        // Tampilkan overlay di dalam layar
+        centerContainer.getChildren().add(overlay);
+    }
+
     private BorderPane createBottomBar() {
 
         BorderPane bottom =
@@ -349,7 +418,9 @@ public class TemplateSessionView extends BorderPane {
         templateCanvas =
                 createTemplateCanvas();
 
-        setCenter(templateCanvas);
+        // Refresh juga membutuhkan inisialisasi ulang StackPane centerContainer
+        centerContainer = new StackPane(templateCanvas);
+        setCenter(centerContainer);
 
         if (continueButton != null) {
 
