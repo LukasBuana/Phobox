@@ -9,7 +9,10 @@ D:\Photobox\photobox\src\main\java\com\photobox\template\TemplateRenderer.java
 D:\Photobox\photobox\src\main\java\com\photobox\template\TemplateRepository.java
 D:\Photobox\photobox\src\main\java\com\photobox\template\TemplateSeeder.java
 D:\Photobox\photobox\src\main\java\com\photobox\template\TemplateSlot.java
+D:\Photobox\photobox\src\main\java\com\photobox\transaction\Transaction.java
+D:\Photobox\photobox\src\main\java\com\photobox\transaction\TransactionRepository.java
 D:\Photobox\photobox\src\main\java\com\photobox\ui\FinalPhotoView.java
+D:\Photobox\photobox\src\main\java\com\photobox\ui\LayoutTypeSelectionView.java
 D:\Photobox\photobox\src\main\java\com\photobox\ui\PhotoCaptureView.java
 D:\Photobox\photobox\src\main\java\com\photobox\ui\TemplateSelectionView.java
 D:\Photobox\photobox\src\main\java\com\photobox\ui\TemplateSessionView.java

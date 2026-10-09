@@ -26,7 +26,7 @@ public class TemplateSeeder {
         int canvasHeight = 1800;
 
         // ==================================================
-        // 1. TEMPLATE TYPE: "2x2" (4 Foto - Potrait Center Balanced)
+        // LAYOUT TYPE: "2x2" (3 Sampel Pilihan)
         // ==================================================
         List<TemplateSlot> slots2x2 = List.of(
                 new TemplateSlot(0, 0, 75, 200, 500, 600, 0),
@@ -35,11 +35,36 @@ public class TemplateSeeder {
                 new TemplateSlot(0, 3, 625, 900, 500, 600, 0)
         );
 
+        // Sampel 1: 2x2 Classic
         repository.create(
                 "2 × 2 Classic",
                 "2x2",
-                "Template 4 foto dengan layout 2 × 2",
-                "templates/2x2/background.png",
+                "Template 4 foto standar dengan gaya klasik",
+                "templates/2x2/classic.png",
+                canvasWidth,
+                canvasHeight,
+                4,
+                slots2x2
+        );
+
+        // Sampel 2: 2x2 Minimalist
+        repository.create(
+                "2 × 2 Minimalist",
+                "2x2",
+                "Template 4 foto dengan sentuhan minimalis",
+                "templates/2x2/minimalist.png",
+                canvasWidth,
+                canvasHeight,
+                4,
+                slots2x2
+        );
+
+        // Sampel 3: 2x2 Neon Vibes
+        repository.create(
+                "2 × 2 Neon Vibes",
+                "2x2",
+                "Template 4 foto dengan nuansa warna neon",
+                "templates/2x2/neon.png",
                 canvasWidth,
                 canvasHeight,
                 4,
@@ -47,7 +72,7 @@ public class TemplateSeeder {
         );
 
         // ==================================================
-        // 2. TEMPLATE TYPE: "3x3" (9 Foto - Square Grid)
+        // LAYOUT TYPE: "3x3" (3 Sampel Pilihan)
         // ==================================================
         List<TemplateSlot> slots3x3 = List.of(
                 // Baris 1
@@ -64,85 +89,42 @@ public class TemplateSeeder {
                 new TemplateSlot(0, 8, 800, 1010, 310, 310, 0)
         );
 
+        // Sampel 1: 3x3 Grid Standard
         repository.create(
-                "3 × 3 Grid",
+                "3 × 3 Grid Standard",
                 "3x3",
-                "Template 9 foto persegi dengan layout 3 × 3",
-                "templates/3x3/background.png",
+                "Template 9 foto persegi dengan grid standar",
+                "templates/3x3/standard.png",
                 canvasWidth,
                 canvasHeight,
                 9,
                 slots3x3
         );
 
-        // ==================================================
-        // 3. TEMPLATE TYPE: "strip" (Dual Strip 1x4 / 8 Slot)
-        // ==================================================
-        List<TemplateSlot> slotsStrip = List.of(
-                // Strip Kiri (4 Foto Vertikal)
-                new TemplateSlot(0, 0, 60, 120, 480, 360, 0),
-                new TemplateSlot(0, 1, 60, 510, 480, 360, 0),
-                new TemplateSlot(0, 2, 60, 900, 480, 360, 0),
-                new TemplateSlot(0, 3, 60, 1290, 480, 360, 0),
-                // Strip Kanan (4 Foto Duplikat)
-                new TemplateSlot(0, 4, 660, 120, 480, 360, 0),
-                new TemplateSlot(0, 5, 660, 510, 480, 360, 0),
-                new TemplateSlot(0, 6, 660, 900, 480, 360, 0),
-                new TemplateSlot(0, 7, 660, 1290, 480, 360, 0)
-        );
-
+        // Sampel 2: 3x3 Retro Polaroid
         repository.create(
-                "Classic Strip 1x4",
-                "strip",
-                "Template photostrip ganda vertikal 4 foto",
-                "templates/strip/background.png",
+                "3 × 3 Retro Polaroid",
+                "3x3",
+                "Template 9 foto dengan nuansa retro",
+                "templates/3x3/retro.png",
                 canvasWidth,
                 canvasHeight,
-                8,
-                slotsStrip
+                9,
+                slots3x3
         );
 
-        // ==================================================
-        // 4. TEMPLATE TYPE: "polaroid" (3 Foto Gaya Polaroid Vertikal)
-        // ==================================================
-        List<TemplateSlot> slotsPolaroid = List.of(
-                new TemplateSlot(0, 0, 210, 150, 780, 480, 0),
-                new TemplateSlot(0, 1, 210, 680, 780, 480, 0),
-                new TemplateSlot(0, 2, 210, 1210, 780, 480, 0)
-        );
-
+        // Sampel 3: 3x3 Pastel Dream
         repository.create(
-                "Polaroid Stack",
-                "polaroid",
-                "Template 3 foto bertumpuk ala gaya polaroid",
-                "templates/polaroid/background.png",
+                "3 × 3 Pastel Dream",
+                "3x3",
+                "Template 9 foto dengan tema warna pastel",
+                "templates/3x3/pastel.png",
                 canvasWidth,
                 canvasHeight,
-                3,
-                slotsPolaroid
+                9,
+                slots3x3
         );
 
-        // ==================================================
-        // 5. TEMPLATE TYPE: "single_strip" (1 Strip Tunggal 4 Foto)
-        // ==================================================
-        List<TemplateSlot> slotsSingleStrip = List.of(
-                new TemplateSlot(0, 0, 360, 100, 480, 360, 0),
-                new TemplateSlot(0, 1, 360, 490, 480, 360, 0),
-                new TemplateSlot(0, 2, 360, 880, 480, 360, 0),
-                new TemplateSlot(0, 3, 360, 1270, 480, 360, 0)
-        );
-
-        repository.create(
-                "Single Strip 1x4",
-                "single_strip",
-                "Template satu strip vertikal isi 4 foto di tengah",
-                "templates/single_strip/background.png",
-                canvasWidth,
-                canvasHeight,
-                4,
-                slotsSingleStrip
-        );
-
-        System.out.println("Semua template (2x2, 3x3, strip, polaroid, single_strip) berhasil di-seed!");
+        System.out.println("Berhasil men-seed 3 sampel untuk layout 2x2 dan 3x3!");
     }
 }

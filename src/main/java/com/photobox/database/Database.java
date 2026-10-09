@@ -49,24 +49,23 @@ public class Database {
     }
 
     public static void initializeDatabase() {
-
-        // ==================================================
-        // DROP TABEL LAMA (MENGATASI PERUBAHAN SKEMA / KOLOM)
-        // ==================================================
         String dropSlotsTable = "DROP TABLE IF EXISTS template_slots";
         String dropTemplatesTable = "DROP TABLE IF EXISTS templates";
         String dropTransactionsTable = "DROP TABLE IF EXISTS transactions";
 
+        // Tabel transactions diperbarui dengan kolom lengkap
         String createTransactionsTable = """
                 CREATE TABLE IF NOT EXISTS transactions (
                     id TEXT PRIMARY KEY,
                     status TEXT NOT NULL,
+                    package_name TEXT NOT NULL,
+                    price INTEGER NOT NULL,
+                    payment_method TEXT NOT NULL,
                     started_at TEXT NOT NULL,
                     resolved_at TEXT
                 )
                 """;
 
-        // Kolom 'type' ditambahkan untuk membedakan jenis layout (misal: "2x2", "3x3", dll)
         String createTemplatesTable = """
                 CREATE TABLE IF NOT EXISTS templates (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -102,40 +101,21 @@ public class Database {
                 )
                 """;
 
-        try (Connection connection =
-                     getConnection();
+        try (Connection connection = getConnection();
+             Statement statement = connection.createStatement()) {
 
-             Statement statement =
-                     connection.createStatement()) {
-
-            // Hapus tabel lama terlebih dahulu agar skema ter-update otomatis
             statement.execute(dropSlotsTable);
             statement.execute(dropTemplatesTable);
             statement.execute(dropTransactionsTable);
 
-            // Buat ulang tabel dengan struktur yang baru
-            statement.execute(
-                    createTransactionsTable
-            );
+            statement.execute(createTransactionsTable);
+            statement.execute(createTemplatesTable);
+            statement.execute(createTemplateSlotsTable);
 
-            statement.execute(
-                    createTemplatesTable
-            );
-
-            statement.execute(
-                    createTemplateSlotsTable
-            );
-
-            System.out.println(
-                    "Database cleared and initialized successfully with new schema."
-            );
+            System.out.println("Database cleared and initialized successfully with transaction schema.");
 
         } catch (SQLException e) {
-
-            System.err.println(
-                    "Gagal initialize database:"
-            );
-
+            System.err.println("Gagal initialize database:");
             e.printStackTrace();
         }
     }

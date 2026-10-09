@@ -7,11 +7,13 @@ import com.photobox.session.PhotoSession;
 import com.photobox.template.Template;
 import com.photobox.template.TemplateRepository;
 import com.photobox.template.TemplateSlot;
+import com.photobox.transaction.TransactionRepository;
 import com.photobox.ui.PhotoCaptureView;
 import com.photobox.ui.TemplateSelectionView;
 import com.photobox.ui.TemplateSessionView;
 import com.photobox.template.TemplateRenderer;
 import com.photobox.ui.FinalPhotoView;
+import com.photobox.ui.LayoutTypeSelectionView;
 
 import javafx.application.Application;
 import javafx.geometry.Insets;
@@ -23,6 +25,7 @@ import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
 import java.nio.file.Path;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -75,26 +78,12 @@ public class PhotoBoothApp extends Application {
     private void showLayoutTypeSelection() {
         disposeCurrentCaptureView();
 
-        VBox layoutRoot = new VBox(25);
-        layoutRoot.setAlignment(Pos.CENTER);
-        layoutRoot.setStyle("-fx-background-color: #111111; -fx-padding: 40;");
+        // Menggunakan UI bertema Natal yang sudah dipisah ke package ui
+        LayoutTypeSelectionView view = new LayoutTypeSelectionView(
+                layoutType -> showTemplateSelection(layoutType)
+        );
 
-        Label title = new Label("PILIH JENIS LAYOUT");
-        title.setStyle("-fx-font-size: 36px; -fx-font-weight: bold; -fx-text-fill: white;");
-
-        Button btn2x2 = new Button("LAYOUT 2x2 (4 Foto)");
-        btn2x2.setPrefWidth(300);
-        btn2x2.setStyle("-fx-font-size: 18px; -fx-padding: 15;");
-        btn2x2.setOnAction(e -> showTemplateSelection("2x2"));
-
-        Button btn3x3 = new Button("LAYOUT 3x3 (9 Foto)");
-        btn3x3.setPrefWidth(300);
-        btn3x3.setStyle("-fx-font-size: 18px; -fx-padding: 15;");
-        btn3x3.setOnAction(e -> showTemplateSelection("3x3"));
-
-        layoutRoot.getChildren().addAll(title, btn2x2, btn3x3);
-
-        showView(layoutRoot);
+        showView(view);
     }
 
     // ==========================================================
@@ -117,11 +106,25 @@ public class PhotoBoothApp extends Application {
     // ==========================================================
     // TEMPLATE SESSION
     // ==========================================================
+    private TransactionRepository transactionRepository = new TransactionRepository();
+    private String currentTransactionId;
+
     private void startTemplateSession(Template template) {
         selectedTemplate = template;
+        photoSession = new PhotoSession(template.getPhotoCount());
 
-        photoSession = new PhotoSession(
-                template.getPhotoCount());
+        // Generate ID Transaksi unik berbasis tanggal/waktu
+        currentTransactionId = "#" + LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
+        
+        // Simpan transaksi ke database (Contoh: Harga tetap Rp25.000, Pembayaran QRIS)
+        transactionRepository.createTransaction(
+                currentTransactionId,
+                template.getName(),
+                25000,
+                "QRIS"
+        );
+
+        System.out.println("Transaksi Dicatat: " + currentTransactionId + " | Paket: " + template.getName());
 
         showTemplateSession();
     }
@@ -193,6 +196,10 @@ public class PhotoBoothApp extends Application {
             Path finalPhoto = templateRenderer.render(
                     selectedTemplate,
                     photoSession);
+
+            if (currentTransactionId != null) {
+                transactionRepository.updateResolvedAt(currentTransactionId);
+            }
 
             System.out.println("================================");
             System.out.println("SESSION FINISHED");

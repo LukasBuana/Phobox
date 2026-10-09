@@ -88,8 +88,9 @@ public class TemplateSessionView extends BorderPane {
         int canvasHeight =
                 template.getCanvasHeight();
 
-        double maxWidth = 900;
-        double maxHeight = 700;
+        // Sesuaikan nilai maxWidth dan maxHeight agar tidak terlalu besar dan pas di layar
+        double maxWidth = 650;
+        double maxHeight = 550;
 
         double scale =
                 Math.min(
