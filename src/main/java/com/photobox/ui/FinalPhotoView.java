@@ -38,6 +38,13 @@ public class FinalPhotoView extends BorderPane {
 
     private void createView() {
 
+        this.setStyle(
+                "-fx-background-image: url('file:assets/background.png');" +
+                "-fx-background-size: cover;" +
+                "-fx-background-position: center center;" +
+                "-fx-background-repeat: no-repeat;"
+        );
+
         setPadding(
                 new Insets(20)
         );
@@ -50,6 +57,7 @@ public class FinalPhotoView extends BorderPane {
                 new Label("FINAL PHOTO");
 
         title.setStyle(
+                "-fx-text-fill: white;"+
                 "-fx-font-size: 26px;" +
                 "-fx-font-weight: bold;"
         );

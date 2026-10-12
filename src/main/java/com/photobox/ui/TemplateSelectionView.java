@@ -11,7 +11,6 @@ import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.Pane;
-import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 
 import java.io.File;
@@ -38,128 +37,131 @@ public class TemplateSelectionView extends BorderPane {
 
     private void createView() {
 
-        setPadding(new Insets(30));
+        // ==================================================
+        // MEMASANG BACKGROUND TEMA NATAL
+        // ==================================================
+        // Pastikan file "Cozy Christmas Photo Booth Backdrop.png" berada 
+        // di root folder project Anda (sejajar dengan src atau pom.xml).
+        // Jika berada di dalam folder assets, ubah menjadi url('file:assets/Cozy Christmas Photo Booth Backdrop.png')
+        this.setStyle(
+                "-fx-background-image: url('file:assets/background.png');" +
+                "-fx-background-size: cover;" +
+                "-fx-background-position: center center;" +
+                "-fx-background-repeat: no-repeat;"
+        );
+
+        setPadding(new Insets(40));
 
         // ==================================================
         // HEADER / TITLE & BACK BUTTON
         // ==================================================
         BorderPane header = new BorderPane();
         
-        Button backButton = new Button("KEMBALI");
-        backButton.setStyle("-fx-font-size: 14px; -fx-padding: 8 15;");
+        Button backButton = new Button("⬅ KEMBALI");
+        backButton.setStyle(
+                "-fx-background-color: rgba(192, 57, 43, 0.9);" + // Merah Natal
+                "-fx-text-fill: white;" +
+                "-fx-font-size: 14px;" + 
+                "-fx-font-weight: bold;" +
+                "-fx-padding: 10 20;" +
+                "-fx-background-radius: 20px;" +
+                "-fx-cursor: hand;"
+        );
         backButton.setOnAction(event -> onBack.run());
 
         Label title = new Label("Pilih Template Background");
         title.setStyle(
-                "-fx-font-size: 28px;" +
-                "-fx-font-weight: bold;"
+                "-fx-font-size: 36px;" +
+                "-fx-font-weight: bold;" +
+                "-fx-text-fill: white;" +
+                "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.8), 10, 0, 0, 0);" // Shadow pekat agar terbaca di background bergambar
         );
 
         header.setLeft(backButton);
         header.setCenter(title);
         BorderPane.setAlignment(title, Pos.CENTER);
+        BorderPane.setAlignment(backButton, Pos.CENTER_LEFT);
 
         setTop(header);
 
         // ==================================================
         // TEMPLATE CONTAINER
         // ==================================================
-        FlowPane templateContainer =
-                new FlowPane();
-
-        templateContainer.setHgap(25);
-        templateContainer.setVgap(25);
-        templateContainer.setPadding(
-                new Insets(30, 0, 0, 0)
-        );
-
-        templateContainer.setAlignment(
-                Pos.TOP_CENTER
-        );
+        FlowPane templateContainer = new FlowPane();
+        templateContainer.setHgap(35);
+        templateContainer.setVgap(35);
+        templateContainer.setPadding(new Insets(40, 0, 0, 0));
+        templateContainer.setAlignment(Pos.TOP_CENTER);
 
         if (templates.isEmpty()) {
-
-            Label emptyLabel =
-                    new Label(
-                            "Belum ada template tersedia untuk layout ini."
-                    );
-
+            Label emptyLabel = new Label("Belum ada template tersedia untuk layout ini.");
             emptyLabel.setStyle(
-                    "-fx-font-size: 18px;"
+                    "-fx-font-size: 20px;" +
+                    "-fx-text-fill: white;" +
+                    "-fx-font-weight: bold;" +
+                    "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.8), 5, 0, 0, 0);"
             );
-
-            templateContainer
-                    .getChildren()
-                    .add(emptyLabel);
-
+            templateContainer.getChildren().add(emptyLabel);
         } else {
-
             for (Template template : templates) {
-
-                VBox card =
-                        createTemplateCard(template);
-
-                templateContainer
-                        .getChildren()
-                        .add(card);
+                VBox card = createTemplateCard(template);
+                templateContainer.getChildren().add(card);
             }
         }
 
         setCenter(templateContainer);
     }
 
-    private VBox createTemplateCard(
-            Template template
-    ) {
-
-        VBox card = new VBox(10);
-
+    private VBox createTemplateCard(Template template) {
+        VBox card = new VBox(15);
         card.setAlignment(Pos.CENTER);
-        card.setPadding(new Insets(15));
+        card.setPadding(new Insets(20));
 
-        card.setPrefWidth(220);
-        card.setPrefHeight(340);
+        card.setPrefWidth(240);
+        card.setPrefHeight(380);
 
+        // ==================================================
+        // EFEK FROSTED GLASS PADA KARTU (Putih Transparan 85%)
+        // ==================================================
         card.setStyle(
-                "-fx-background-color: white;" +
-                "-fx-border-color: #dddddd;" +
-                "-fx-border-radius: 10;" +
-                "-fx-background-radius: 10;" +
+                "-fx-background-color: rgba(255, 255, 255, 0.85);" +
+                "-fx-border-color: #27ae60;" + // Hijau Natal
+                "-fx-border-width: 3px;" +
+                "-fx-border-radius: 15px;" +
+                "-fx-background-radius: 15px;" +
+                "-fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.4), 15, 0, 0, 0);" +
                 "-fx-cursor: hand;"
         );
 
-        Pane previewPane =
-                createPreview(template);
+        Pane previewPane = createPreview(template);
 
-        Label name =
-                new Label(template.getName());
-
+        Label name = new Label(template.getName());
         name.setStyle(
-                "-fx-font-size: 16px;" +
+                "-fx-font-size: 18px;" +
+                "-fx-font-weight: bold;" +
+                "-fx-text-fill: #2c3e50;"
+        );
+
+        Label photoCount = new Label(template.getPhotoCount() + " Photos");
+        photoCount.setStyle(
+                "-fx-text-fill: #e74c3c;" + // Aksen tulisan Merah Natal
+                "-fx-font-size: 14px;" +
                 "-fx-font-weight: bold;"
         );
 
-        Label photoCount =
-                new Label(
-                        template.getPhotoCount()
-                                + " Photos"
-                );
-
-        photoCount.setStyle(
-                "-fx-text-fill: #666666;" +
-                "-fx-font-size: 12px;"
+        Button selectButton = new Button("PILIH TEMPLATE");
+        selectButton.setMaxWidth(Double.MAX_VALUE);
+        selectButton.setStyle(
+                "-fx-background-color: #27ae60;" + // Tombol Hijau
+                "-fx-text-fill: white;" +
+                "-fx-font-size: 14px;" +
+                "-fx-font-weight: bold;" +
+                "-fx-padding: 10;" +
+                "-fx-background-radius: 8px;" +
+                "-fx-cursor: hand;"
         );
 
-        Button selectButton =
-                new Button("Pilih Template");
-
-        selectButton.setMaxWidth(
-                Double.MAX_VALUE
-        );
-
-        selectButton.setOnAction(event ->
-                onTemplateSelected.accept(template)
-        );
+        selectButton.setOnAction(event -> onTemplateSelected.accept(template));
 
         card.getChildren().addAll(
                 previewPane,
@@ -168,8 +170,28 @@ public class TemplateSelectionView extends BorderPane {
                 selectButton
         );
 
-        card.setOnMouseClicked(event -> {
+        // Efek Hover Interaktif Pada Kartu
+        card.setOnMouseEntered(e -> card.setStyle(
+                "-fx-background-color: rgba(255, 255, 255, 0.95);" + // Sedikit lebih pekat saat disentuh
+                "-fx-border-color: #e74c3c;" + // Border berubah Merah
+                "-fx-border-width: 3px;" +
+                "-fx-border-radius: 15px;" +
+                "-fx-background-radius: 15px;" +
+                "-fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.6), 20, 0, 0, 0);" +
+                "-fx-cursor: hand;"
+        ));
 
+        card.setOnMouseExited(e -> card.setStyle(
+                "-fx-background-color: rgba(255, 255, 255, 0.85);" +
+                "-fx-border-color: #27ae60;" +
+                "-fx-border-width: 3px;" +
+                "-fx-border-radius: 15px;" +
+                "-fx-background-radius: 15px;" +
+                "-fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.4), 15, 0, 0, 0);" +
+                "-fx-cursor: hand;"
+        ));
+
+        card.setOnMouseClicked(event -> {
             if (event.getTarget() != selectButton) {
                 onTemplateSelected.accept(template);
             }
@@ -183,8 +205,8 @@ public class TemplateSelectionView extends BorderPane {
         int canvasHeight = template.getCanvasHeight();
 
         // Ukuran mini preview pada kartu
-        double previewWidth = 180;
-        double previewHeight = 210;
+        double previewWidth = 190;
+        double previewHeight = 220;
 
         double scale = Math.min(
                 previewWidth / canvasWidth,
@@ -197,7 +219,7 @@ public class TemplateSelectionView extends BorderPane {
         Pane pane = new Pane();
         pane.setPrefSize(displayWidth, displayHeight);
         pane.setMaxSize(displayWidth, displayHeight);
-        pane.setStyle("-fx-background-color: #f0f0f0; -fx-border-color: #cccccc;");
+        pane.setStyle("-fx-background-color: white; -fx-border-color: #cccccc; -fx-border-width: 1px;");
 
         // 1. Muat Background jika ada
         String backgroundPath = template.getBackgroundPath();

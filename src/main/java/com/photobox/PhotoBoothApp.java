@@ -8,26 +8,25 @@ import com.photobox.template.Template;
 import com.photobox.template.TemplateRepository;
 import com.photobox.template.TemplateSlot;
 import com.photobox.transaction.TransactionRepository;
+import com.photobox.ui.AttractScreenView; // Layar Idle Baru
 import com.photobox.ui.PhotoCaptureView;
 import com.photobox.ui.TemplateSelectionView;
 import com.photobox.ui.TemplateSessionView;
 import com.photobox.template.TemplateRenderer;
 import com.photobox.ui.FinalPhotoView;
 import com.photobox.ui.LayoutTypeSelectionView;
+import com.photobox.ui.PaymentScreenView;
 
+import javafx.animation.PauseTransition; // Import untuk Timer
 import javafx.application.Application;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.layout.VBox;
+import javafx.scene.input.InputEvent; // Import untuk memantau sentuhan/klik
 import javafx.stage.Stage;
+import javafx.util.Duration; // Import untuk Durasi
 
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.function.Consumer;
 
 public class PhotoBoothApp extends Application {
 
@@ -47,6 +46,11 @@ public class PhotoBoothApp extends Application {
     private TransactionRepository transactionRepository = new TransactionRepository();
     private String currentTransactionId;
 
+    // ==========================================
+    // VARIABLE IDLE TIMER
+    // ==========================================
+    private PauseTransition idleTimer;
+
     @Override
     public void start(Stage stage) {
 
@@ -54,11 +58,13 @@ public class PhotoBoothApp extends Application {
 
         initializeServices();
 
-        // Alur dimulai dengan memilih jenis layout terlebih dahulu
-        showLayoutTypeSelection();
+        // 1. Inisialisasi dan jalankan Idle Timer
+        setupGlobalIdleTimer();
+
+        // 2. Alur selalu dimulai dari Attract Screen
+        showAttractScreen();
 
         stage.setTitle("PHOTOBOX");
-
         stage.setFullScreen(true);
         stage.setFullScreenExitHint("");
 
@@ -66,7 +72,6 @@ public class PhotoBoothApp extends Application {
     }
 
     private void initializeServices() {
-
         camera = new WebcamCamera();
         camera.start();
 
@@ -76,21 +81,73 @@ public class PhotoBoothApp extends Application {
     }
 
     // ==========================================================
-    // TAHAP 1: PILIH JENIS LAYOUT (2x2, 3x3, dll)
+    // FITUR GLOBAL IDLE TIMER (3 MENIT TIMEOUT)
     // ==========================================================
-    private void showLayoutTypeSelection() {
+    private void setupGlobalIdleTimer() {
+        // Set durasi timeout (misal: 3 menit)
+        idleTimer = new PauseTransition(Duration.minutes(3));
+
+        // Apa yang terjadi jika waktu habis? Panggil resetToIdleState()
+        idleTimer.setOnFinished(event -> resetToIdleState());
+
+        // Pantau SETIAP interaksi (Sentuhan layar, Mouse, Keyboard) di seluruh aplikasi
+        stage.addEventFilter(InputEvent.ANY, event -> {
+            // Jika ada interaksi, reset timer ke awal (kembali ke 3 menit)
+            idleTimer.playFromStart();
+        });
+
+        // Mulai timer sekarang
+        idleTimer.play();
+    }
+
+    private void resetToIdleState() {
+        System.out.println("⏳ Mesin IDLE selama 3 menit. Mereset seluruh sesi untuk privasi...");
+
+        // 1. Buang tampilan kamera yang sedang aktif (jika ada)
         disposeCurrentCaptureView();
 
-        // Menggunakan UI bertema Natal yang sudah dipisah ke package ui
-        LayoutTypeSelectionView view = new LayoutTypeSelectionView(
-                layoutType -> showTemplateSelection(layoutType)
+        // 2. Bersihkan sesi foto sementara agar tidak bocor ke orang berikutnya
+        if (photoSession != null) {
+            photoSession.reset();
+        }
+
+        // 3. Batalkan status template dan transaksi yang menggantung
+        selectedTemplate = null;
+        currentTransactionId = null; 
+
+        // 4. Kembali panggil layar animasi awal
+        showAttractScreen();
+    }
+
+    // ==========================================================
+    // TAHAP 0: ATTRACT SCREEN (IDLE MODE)
+    // ==========================================================
+    private void showAttractScreen() {
+        disposeCurrentCaptureView();
+
+        AttractScreenView view = new AttractScreenView(
+                // Jika layar ditekan, pindah ke tahap 1 (Pilih Layout)
+                this::showLayoutTypeSelection 
         );
 
         showView(view);
     }
 
     // ==========================================================
-    // TAHAP 2: PILIH TEMPLATE BERDASARKAN TIPE
+    // TAHAP 1: PILIH JENIS LAYOUT
+    // ==========================================================
+    private void showLayoutTypeSelection() {
+        disposeCurrentCaptureView();
+
+        LayoutTypeSelectionView view = new LayoutTypeSelectionView(
+                this::showTemplateSelection
+        );
+
+        showView(view);
+    }
+
+    // ==========================================================
+    // TAHAP 2: PILIH TEMPLATE
     // ==========================================================
     private void showTemplateSelection(String layoutType) {
         disposeCurrentCaptureView();
@@ -99,42 +156,69 @@ public class PhotoBoothApp extends Application {
 
         TemplateSelectionView view = new TemplateSelectionView(
                 templates,
-                this::startTemplateSession,
-                this::showLayoutTypeSelection // Tombol kembali untuk ganti jenis layout
+                this::showPaymentScreen, // Pindah ke layar pembayaran sebelum foto
+                this::showAttractScreen 
+        );
+
+        showView(view);
+    }
+
+   // ==========================================================
+    // TAHAP 3: LAYAR PEMBAYARAN QRIS
+    // ==========================================================
+   // ==========================================================
+    // TAHAP 3: LAYAR PEMBAYARAN QRIS
+    // ==========================================================
+    private void showPaymentScreen(Template template) {
+        selectedTemplate = template;
+        disposeCurrentCaptureView();
+
+        // Buat ID Transaksi Unik untuk Xendit
+        currentTransactionId = "TX-" + System.currentTimeMillis();
+
+        PaymentScreenView view = new PaymentScreenView(
+                currentTransactionId,
+                // Jika Berhasil Bayar (Atau di-klik untuk bypass)
+                () -> {
+                    // ==========================================
+                    // 1. INISIALISASI SESI FOTO (AGAR TIDAK NULL)
+                    // ==========================================
+                    photoSession = new PhotoSession(selectedTemplate.getPhotoCount());
+
+                    // 2. Catat ke Database Lokal
+                    transactionRepository.createTransaction(
+                            "#" + currentTransactionId,
+                            template.getName(),
+                            25000,
+                            "QRIS"
+                    );
+                    System.out.println("Transaksi Dicatat: " + currentTransactionId);
+
+                    // 3. Kirim Notifikasi (Opsional: Telegram/WA)
+                    String message = String.format(
+                        "🚨 *PEMBAYARAN BERHASIL!*\n\n" +
+                        "🆔 ID Transaksi: `%s`\n" +
+                        "📦 Paket: *%s*\n" +
+                        "💰 Nominal: *Rp 25.000*",
+                        currentTransactionId,
+                        template.getName()
+                    );
+                    com.photobox.service.TelegramNotifier.sendNotification(message);
+
+                    // 4. Mulai Sesi Foto Berurutan
+                    startSequentialCapture(0);
+                },
+                // Jika Batal / Timeout
+                this::backToTemplateSelection
         );
 
         showView(view);
     }
 
     // ==========================================================
-    // TAHAP 3: MULAI SESI & TRANSAKSI
-    // ==========================================================
-    private void startTemplateSession(Template template) {
-        selectedTemplate = template;
-        photoSession = new PhotoSession(template.getPhotoCount());
-
-        // Generate ID Transaksi unik berbasis tanggal/waktu
-        currentTransactionId = "#" + LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
-        
-        // Simpan transaksi ke database
-        transactionRepository.createTransaction(
-                currentTransactionId,
-                template.getName(),
-                25000,
-                "QRIS"
-        );
-
-        System.out.println("Transaksi Dicatat: " + currentTransactionId + " | Paket: " + template.getName());
-
-        // Langsung mulai proses auto-capture dari slot pertama (0)
-        startSequentialCapture(0);
-    }
-
-    // ==========================================================
-    // TAHAP 4: AUTO-CAPTURE BERURUTAN (SEQUENTIAL)
+    // TAHAP 4: AUTO-CAPTURE BERURUTAN
     // ==========================================================
     private void startSequentialCapture(int slotIndex) {
-        // Jika index sudah mencapai total foto yang dibutuhkan, tampilkan layar review
         if (slotIndex >= selectedTemplate.getPhotoCount()) {
             showTemplateSession();
             return;
@@ -149,13 +233,13 @@ public class PhotoBoothApp extends Application {
                 photoCapture,
                 targetSlot,
 
-                // ON PHOTO ACCEPTED: Simpan foto lalu otomatis jepret slot berikutnya
+                // ON PHOTO ACCEPTED
                 photoPath -> {
                     photoSession.addPhoto(slotIndex, photoPath);
                     startSequentialCapture(slotIndex + 1);
                 },
 
-                // ON BACK: Batalkan sesi, kembali ke layar pilih template
+                // ON BACK/BATAL
                 this::backToTemplateSelection
         );
 
@@ -175,13 +259,13 @@ public class PhotoBoothApp extends Application {
                 photoCapture,
                 targetSlot,
 
-                // ON PHOTO ACCEPTED: Timpa foto lama, lalu kembali ke layar review
+                // ON PHOTO ACCEPTED (Menimpa)
                 photoPath -> {
                     photoSession.addPhoto(slotIndex, photoPath);
                     showTemplateSession();
                 },
 
-                // ON BACK: Batal retake, kembali ke layar review
+                // ON BACK
                 this::showTemplateSession
         );
 
@@ -189,7 +273,7 @@ public class PhotoBoothApp extends Application {
     }
 
     // ==========================================================
-    // TAHAP 6: LAYAR REVIEW (TEMPLATE SESSION VIEW)
+    // TAHAP 6: LAYAR REVIEW
     // ==========================================================
     private void showTemplateSession() {
         disposeCurrentCaptureView();
@@ -198,13 +282,8 @@ public class PhotoBoothApp extends Application {
                 selectedTemplate,
                 photoSession,
 
-                // BACK
                 this::backToTemplateSelection,
-
-                // SLOT SELECTED -> Memicu Retake
                 this::startRetakePhoto,
-
-                // CONTINUE -> Selesai dan render
                 this::finishSession
         );
 
@@ -242,13 +321,14 @@ public class PhotoBoothApp extends Application {
         FinalPhotoView view = new FinalPhotoView(
                 finalPhoto,
 
-                // RETAKE SESI (Mulai ulang template ini)
+                // RETAKE SESI
                 this::showTemplateSelectionForCurrentType,
 
-                // PRINT
+                // PRINT (Setelah selesai ngeprint, biasanya mesin kembali ke layar Attract)
                 () -> {
                     System.out.println("PRINT belum diimplementasikan.");
                     System.out.println("File: " + finalPhoto.toAbsolutePath());
+                    resetToIdleState(); // Selesai print = reset mesin untuk orang berikutnya
                 }
         );
 
@@ -272,7 +352,6 @@ public class PhotoBoothApp extends Application {
         }
 
         selectedTemplate = null;
-
         showLayoutTypeSelection();
     }
 
@@ -296,6 +375,10 @@ public class PhotoBoothApp extends Application {
 
     @Override
     public void stop() {
+        if (idleTimer != null) {
+            idleTimer.stop();
+        }
+
         disposeCurrentCaptureView();
 
         if (camera != null && camera.isRunning()) {

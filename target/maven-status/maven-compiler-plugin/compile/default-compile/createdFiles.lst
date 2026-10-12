@@ -1,4 +1,5 @@
 com\photobox\template\TemplateSlot.class
+com\photobox\ui\FinalPhotoView.class
 com\photobox\template\Template.class
 com\photobox\database\Database.class
 com\photobox\PhotoBoothApp.class

@@ -24,8 +24,10 @@ public class LayoutTypeSelectionView extends StackPane {
         // BACKGROUND BERMODEL GRADIASI NATAL & EFEK SALJU
         // ==================================================
         this.setStyle(
-                "-fx-background-color: linear-gradient(to bottom, #ffffff, #ffffff);" +
-                "-fx-padding: 40;"
+                "-fx-background-image: url('file:assets/background.png');" +
+                "-fx-background-size: cover;" +
+                "-fx-background-position: center center;" +
+                "-fx-background-repeat: no-repeat;"
         );
 
         VBox mainContainer = new VBox(30);

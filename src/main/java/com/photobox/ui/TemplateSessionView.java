@@ -54,6 +54,14 @@ public class TemplateSessionView extends BorderPane {
 
     private void createView() {
 
+        // 1. PASANG BACKGROUND DI 'this' (ROOT BORDERPANE), BUKAN DI TITLE
+        this.setStyle(
+                "-fx-background-image: url('file:assets/background.png');" +
+                "-fx-background-size: cover;" +
+                "-fx-background-position: center center;" +
+                "-fx-background-repeat: no-repeat;"
+        );
+
         setPadding(new Insets(20));
 
         Label title =
@@ -61,9 +69,12 @@ public class TemplateSessionView extends BorderPane {
                         template.getName()
                 );
 
+        // 2. STYLE TITLE HANYA UNTUK TEKS (HAPUS BACKGROUND DARI SINI)
         title.setStyle(
-                "-fx-font-size: 24px;" +
-                "-fx-font-weight: bold;"
+                "-fx-font-size: 32px;" +
+                "-fx-font-weight: bold;" +
+                "-fx-text-fill: white;" + // Teks warna putih agar terbaca
+                "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.8), 10, 0, 0, 0);"
         );
 
         BorderPane.setAlignment(
